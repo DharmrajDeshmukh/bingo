@@ -10,8 +10,8 @@ module.exports = {
   refreshExpiry: process.env.REFRESH_EXPIRY || "7d",  // long-lived
 
   // 🧾 Token issuer (optional but recommended)
-  issuer: process.env.JWT_ISSUER || "setu-app",
+  issuer: process.env.JWT_ISSUER,
 
   // 👥 Audience (who this token is for)
-  audience: process.env.JWT_AUDIENCE || "setu-users"
+  audience: process.env.JWT_AUDIENCE
 };
