@@ -53,7 +53,7 @@ const findAvailableContainer = () => {
 
 
 // 🔥 START MATCHMAKING TIMER
-const startMatchmaking = (containerId) => {
+const startMatchmaking = (containerId, io) => {
   const container = containers.get(containerId);
   if (!container) return;
 
@@ -62,18 +62,29 @@ const startMatchmaking = (containerId) => {
   container.timerStarted = true;
 
   setTimeout(() => {
-    if (container.users.length >= MIN_USERS) {
-      container.isReady = true;
-      container.isLocked = true;
+    const updated = containers.get(containerId);
+    if (!updated) return;
+
+    // ✅ Only start if enough users
+    if (updated.users.length >= MIN_USERS && !updated.isReady) {
+      updated.isReady = true;
+      updated.isLocked = true;
 
       console.log("⏳ 30 sec completed → game ready:", containerId);
+
+      // ✅ SOCKET EMIT
+      io.to(containerId).emit("game_ready", {
+        containerId,
+        totalUsers: updated.users.length,
+        users: updated.users
+      });
     }
   }, WAIT_TIME);
 };
 
 
 // 🔹 ADD USER TO CONTAINER
-const addUserToContainer = (userId) => {
+const addUserToContainer = (userId, io) => {
   const existing = getUserContainer(userId);
   if (existing) return existing;
 
@@ -85,6 +96,7 @@ const addUserToContainer = (userId) => {
 
   let container = containers.get(containerId);
 
+  // ❌ If locked → create new
   if (container.isLocked) {
     containerId = createContainer();
     container = containers.get(containerId);
@@ -92,9 +104,8 @@ const addUserToContainer = (userId) => {
 
   container.users.push(userId);
 
-  // 🔥 INIT PLAYER STATS (DYNAMIC)
+  // 🔥 INIT STATS
   const size = getMatrixSize(container.users.length);
-
   container.playerStats[userId] = {
     marked: new Set(),
     rowCount: new Array(size).fill(0),
@@ -105,22 +116,21 @@ const addUserToContainer = (userId) => {
   };
 
   // 🔥 START TIMER
-  startMatchmaking(containerId);
+  startMatchmaking(containerId, io);
 
-  // ✅ INSTANT START IF >= 2 USERS
-if (container.users.length >= MIN_USERS) {
-  container.isReady = true;
-  container.isLocked = true;
-
-  console.log("🚀 Instant start (2+ users):", containerId);
-}
-
-  // 🚀 INSTANT START IF FULL
+  // 🚀 INSTANT START IF FULL (5 users)
   if (container.users.length === MAX_USERS) {
     container.isReady = true;
     container.isLocked = true;
 
     console.log("🚀 Instant start (5 users):", containerId);
+
+    // ✅ SOCKET EMIT
+    io.to(containerId).emit("game_ready", {
+      containerId,
+      totalUsers: container.users.length,
+      users: container.users
+    });
   }
 
   return containerId;
