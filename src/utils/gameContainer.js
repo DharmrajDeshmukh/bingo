@@ -3,7 +3,7 @@ const containers = new Map();
 let containerCounter = 1;
 
 const MAX_USERS = 5;
-const MIN_USERS = 1;
+const MIN_USERS = 2;
 const WAIT_TIME = 30000; // 30 sec
 
 
@@ -106,6 +106,14 @@ const addUserToContainer = (userId) => {
 
   // 🔥 START TIMER
   startMatchmaking(containerId);
+
+  // ✅ INSTANT START IF >= 2 USERS
+if (container.users.length >= MIN_USERS) {
+  container.isReady = true;
+  container.isLocked = true;
+
+  console.log("🚀 Instant start (2+ users):", containerId);
+}
 
   // 🚀 INSTANT START IF FULL
   if (container.users.length === MAX_USERS) {
