@@ -53,13 +53,11 @@ const findAvailableContainer = () => {
 
 
 // 🔥 START MATCHMAKING TIMER
-const startMatchmaking = (containerId) => {
+const startMatchmaking = (containerId, io) => {
   const container = containers.get(containerId);
   if (!container) return;
 
-  // ✅ ADD HERE (correct place)
   if (container.isReady) return;
-
   if (container.timerStarted) return;
 
   container.timerStarted = true;
@@ -74,12 +72,14 @@ const startMatchmaking = (containerId) => {
 
       console.log("⏳ 30 sec completed → game ready:", containerId);
 
-      if (global.io) {
-        global.io.to(containerId).emit("game_ready", {
+      if (io) {
+        io.to(containerId).emit("game_ready", {
           containerId,
           totalUsers: updated.users.length,
           users: updated.users
         });
+      } else {
+        console.log("❌ IO not available (timer emit)");
       }
     }
   }, WAIT_TIME);
@@ -87,7 +87,7 @@ const startMatchmaking = (containerId) => {
 
 
 // 🔹 ADD USER TO CONTAINER
-const addUserToContainer = (userId) => {
+const addUserToContainer = (userId, io) => {
   const existing = getUserContainer(userId);
   if (existing) return existing;
 
@@ -118,35 +118,34 @@ const addUserToContainer = (userId) => {
     score: 0
   };
 
-  // 🔥 START TIMER
+  // 🔥 START TIMER (FIXED)
   startMatchmaking(containerId, io);
 
   // 🚀 INSTANT START IF FULL (5 users)
   if (container.users.length === MAX_USERS && !container.isReady) {
-  container.isReady = true;
-  container.isLocked = true;
+    container.isReady = true;
+    container.isLocked = true;
 
-  console.log("🚀 Instant start (5 users):", containerId);
+    console.log("🚀 Instant start (5 users):", containerId);
 
-  // ✅ SAFE SOCKET EMIT
-  if (global.io) {
-    global.io.to(containerId).emit("game_ready", {
-      containerId,
-      totalUsers: container.users.length,
-      users: container.users,
-      instant: true // 🔥 optional flag (very useful)
-    });
-  } else {
-    console.log("❌ global.io not available (instant start)");
+    if (io) {
+      io.to(containerId).emit("game_ready", {
+        containerId,
+        totalUsers: container.users.length,
+        users: container.users,
+        instant: true
+      });
+    } else {
+      console.log("❌ IO not available (instant start)");
+    }
   }
-}
 
   return containerId;
 };
 
 
 // 🔹 REMOVE USER
-const removeUserFromContainer = (userId) => {
+const removeUserFromContainer = (userId, io) => {
   for (let [id, container] of containers) {
     const index = container.users.indexOf(userId);
 
@@ -160,7 +159,7 @@ const removeUserFromContainer = (userId) => {
       if (!container.isReady) {
         container.createdAt = Date.now();
         container.timerStarted = false;
-        startMatchmaking(id);
+        startMatchmaking(id, io);
       }
 
       // 🔥 UNLOCK IF BELOW MIN
@@ -273,7 +272,7 @@ const resetContainerGame = (containerId) => {
 };
 
 
-// 🔹 CHECK READY (FOR STATUS API)
+// 🔹 CHECK READY
 const isContainerReady = (containerId) => {
   const container = containers.get(containerId);
   if (!container) return false;
@@ -283,7 +282,6 @@ const isContainerReady = (containerId) => {
 
 
 module.exports = {
-  
   addUserToContainer,
   removeUserFromContainer,
   getUserContainer,
