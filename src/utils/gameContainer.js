@@ -19,6 +19,8 @@ const getMatrixSize = (userCount) => {
 const createContainer = () => {
   const containerId = `room_${containerCounter++}`;
 
+
+
   containers.set(containerId, {
     id: containerId,
     users: [],
@@ -73,11 +75,16 @@ const startMatchmaking = (containerId, io) => {
       console.log("⏳ 30 sec completed → game ready:", containerId);
 
       if (io) {
+
+        const totalUsers = updated.users.length;
+const matrixSize = getMatrixSize(totalUsers);
+
         io.to(containerId).emit("game_ready", {
-          containerId,
-          totalUsers: updated.users.length,
-          users: updated.users
-        });
+  containerId,
+  totalUsers,
+  matrixSize,
+  users: updated.users
+});
       } else {
         console.log("❌ IO not available (timer emit)");
       }
@@ -129,12 +136,16 @@ const addUserToContainer = (userId, io) => {
     console.log("🚀 Instant start (5 users):", containerId);
 
     if (io) {
-      io.to(containerId).emit("game_ready", {
-        containerId,
-        totalUsers: container.users.length,
-        users: container.users,
-        instant: true
-      });
+      const totalUsers = container.users.length;
+const matrixSize = getMatrixSize(totalUsers);
+
+     io.to(containerId).emit("game_ready", {
+  containerId,
+  totalUsers,
+  matrixSize,
+  users: container.users,
+  instant: true
+});
     } else {
       console.log("❌ IO not available (instant start)");
     }

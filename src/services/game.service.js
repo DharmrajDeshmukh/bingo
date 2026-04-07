@@ -20,20 +20,7 @@ const startGame = async (userId , io) => {
   const container = gameContainer.getContainer(containerId);
 
   // 🔥 ADD THIS BLOCK (CRITICAL)
-  if (container && container.users.length >= 2) {
-
-    const size = gameContainer.getMatrixSize(container.users.length);
-
-  if (io) {
-  io.to(containerId).emit("matchReady", {
-    containerId,
-    players: container.users,
-    matrixSizeNumber: size
-  });
-}
-
-    console.log("🔥 MATCH READY:", containerId);
-  }
+ 
 
   return {
     containerId,
@@ -44,7 +31,7 @@ const startGame = async (userId , io) => {
 
 
 // 🏁 END GAME
-const endGame = async (userId, containerId) => {
+const endGame = async (userId, containerId,io) => {
   const actual = gameContainer.getUserContainer(userId);
 
   if (!actual) throw new Error("User not in any container");
@@ -69,7 +56,7 @@ const endGame = async (userId, containerId) => {
 
 
 // 🚪 LEAVE GAME
-const leaveGame = async (userId, containerId) => {
+const leaveGame = async (userId, containerId , io) => {
   const actual = gameContainer.getUserContainer(userId);
 
   if (!actual) throw new Error("User not in any container");
