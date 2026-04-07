@@ -53,9 +53,12 @@ const findAvailableContainer = () => {
 
 
 // 🔥 START MATCHMAKING TIMER
-const startMatchmaking = (containerId, io) => {
+const startMatchmaking = (containerId) => {
   const container = containers.get(containerId);
   if (!container) return;
+
+  // ✅ ADD HERE (correct place)
+  if (container.isReady) return;
 
   if (container.timerStarted) return;
 
@@ -65,26 +68,26 @@ const startMatchmaking = (containerId, io) => {
     const updated = containers.get(containerId);
     if (!updated) return;
 
-    // ✅ Only start if enough users
     if (updated.users.length >= MIN_USERS && !updated.isReady) {
       updated.isReady = true;
       updated.isLocked = true;
 
       console.log("⏳ 30 sec completed → game ready:", containerId);
 
-      // ✅ SOCKET EMIT
-      io.to(containerId).emit("game_ready", {
-        containerId,
-        totalUsers: updated.users.length,
-        users: updated.users
-      });
+      if (global.io) {
+        global.io.to(containerId).emit("game_ready", {
+          containerId,
+          totalUsers: updated.users.length,
+          users: updated.users
+        });
+      }
     }
   }, WAIT_TIME);
 };
 
 
 // 🔹 ADD USER TO CONTAINER
-const addUserToContainer = (userId, io) => {
+const addUserToContainer = (userId) => {
   const existing = getUserContainer(userId);
   if (existing) return existing;
 
@@ -119,19 +122,24 @@ const addUserToContainer = (userId, io) => {
   startMatchmaking(containerId, io);
 
   // 🚀 INSTANT START IF FULL (5 users)
-  if (container.users.length === MAX_USERS) {
-    container.isReady = true;
-    container.isLocked = true;
+  if (container.users.length === MAX_USERS && !container.isReady) {
+  container.isReady = true;
+  container.isLocked = true;
 
-    console.log("🚀 Instant start (5 users):", containerId);
+  console.log("🚀 Instant start (5 users):", containerId);
 
-    // ✅ SOCKET EMIT
-    io.to(containerId).emit("game_ready", {
+  // ✅ SAFE SOCKET EMIT
+  if (global.io) {
+    global.io.to(containerId).emit("game_ready", {
       containerId,
       totalUsers: container.users.length,
-      users: container.users
+      users: container.users,
+      instant: true // 🔥 optional flag (very useful)
     });
+  } else {
+    console.log("❌ global.io not available (instant start)");
   }
+}
 
   return containerId;
 };
@@ -275,6 +283,7 @@ const isContainerReady = (containerId) => {
 
 
 module.exports = {
+  
   addUserToContainer,
   removeUserFromContainer,
   getUserContainer,
