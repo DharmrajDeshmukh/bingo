@@ -19,8 +19,6 @@ const getMatrixSize = (userCount) => {
 const createContainer = () => {
   const containerId = `room_${containerCounter++}`;
 
-
-
   containers.set(containerId, {
     id: containerId,
     users: [],
@@ -28,9 +26,7 @@ const createContainer = () => {
     currentTurnIndex: 0,
     submittedUsers: new Set(),
     playerStats: {},
-
     createdAt: Date.now(),
-
     isLocked: false,
     isReady: false,
     timerStarted: false
@@ -51,6 +47,22 @@ const findAvailableContainer = () => {
     }
   }
   return null;
+};
+
+
+// 🔥 EMIT HELPER (CLEAN + REUSABLE)
+const emitGameReady = (io, containerId, payload) => {
+  const room = io.sockets.adapter.rooms.get(containerId);
+
+  console.log("📡 EMIT DATA:", payload);
+  console.log("👥 ROOM SIZE:", room ? room.size : 0);
+
+  if (room && room.size > 0) {
+    io.to(containerId).emit("game_ready", payload);
+  } else {
+    console.log("⚠️ Fallback emit");
+    io.emit("game_ready", payload);
+  }
 };
 
 
@@ -75,18 +87,17 @@ const startMatchmaking = (containerId, io) => {
       console.log("⏳ 30 sec completed → game ready:", containerId);
 
       if (io) {
-
         const totalUsers = updated.users.length;
-const matrixSize = getMatrixSize(totalUsers);
+        const matrixSize = getMatrixSize(totalUsers);
 
-        io.to(containerId).emit("game_ready", {
-  containerId,
-  totalUsers,
-  matrixSize,
-  users: updated.users
-});
-      } else {
-        console.log("❌ IO not available (timer emit)");
+        const payload = {
+          containerId,
+          totalUsers,
+          matrixSize,
+          users: updated.users
+        };
+
+        emitGameReady(io, containerId, payload);
       }
     }
   }, WAIT_TIME);
@@ -106,7 +117,6 @@ const addUserToContainer = (userId, io) => {
 
   let container = containers.get(containerId);
 
-  // ❌ If locked → create new
   if (container.isLocked) {
     containerId = createContainer();
     container = containers.get(containerId);
@@ -125,29 +135,28 @@ const addUserToContainer = (userId, io) => {
     score: 0
   };
 
-  // 🔥 START TIMER (FIXED)
+  // 🔥 START TIMER
   startMatchmaking(containerId, io);
 
-  // 🚀 INSTANT START IF FULL (5 users)
+  // 🚀 INSTANT START
   if (container.users.length === MAX_USERS && !container.isReady) {
     container.isReady = true;
     container.isLocked = true;
 
-    console.log("🚀 Instant start (5 users):", containerId);
+    console.log("🚀 Instant start:", containerId);
 
     if (io) {
       const totalUsers = container.users.length;
-const matrixSize = getMatrixSize(totalUsers);
+      const matrixSize = getMatrixSize(totalUsers);
 
-     io.to(containerId).emit("game_ready", {
-  containerId,
-  totalUsers,
-  matrixSize,
-  users: container.users,
-  instant: true
-});
-    } else {
-      console.log("❌ IO not available (instant start)");
+      const payload = {
+        containerId,
+        totalUsers,
+        matrixSize,
+        users: container.users
+      };
+
+      emitGameReady(io, containerId, payload);
     }
   }
 
@@ -166,19 +175,16 @@ const removeUserFromContainer = (userId, io) => {
       container.submittedUsers.delete(userId);
       delete container.playerStats[userId];
 
-      // 🔥 RESET TIMER IF NEEDED
       if (!container.isReady) {
         container.createdAt = Date.now();
-      container.timerStarted = false;
-setTimeout(() => startMatchmaking(id, io), 100);
+        container.timerStarted = false;
+        setTimeout(() => startMatchmaking(id, io), 100);
       }
 
-      // 🔥 UNLOCK IF BELOW MIN
       if (container.users.length < MIN_USERS && !container.isReady) {
         container.isLocked = false;
       }
 
-      // 🔥 DELETE EMPTY
       if (container.users.length === 0) {
         containers.delete(id);
       }
@@ -208,101 +214,10 @@ const getContainer = (containerId) => {
 };
 
 
-// 🔹 GET USERS
-const getContainerUsers = (containerId) => {
-  const container = containers.get(containerId);
-  return container ? container.users : [];
-};
-
-
-// 🔥 GENERATE TURN ORDER
-const generateTurnOrder = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return null;
-
-  const shuffled = [...container.users].sort(() => Math.random() - 0.5);
-
-  container.turnOrder = shuffled;
-  container.currentTurnIndex = 0;
-
-  return shuffled;
-};
-
-
-// 🔥 CURRENT TURN
-const getCurrentTurn = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return null;
-
-  return container.turnOrder[container.currentTurnIndex];
-};
-
-
-// 🔥 NEXT TURN
-const nextTurn = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return null;
-
-  container.currentTurnIndex =
-    (container.currentTurnIndex + 1) % container.turnOrder.length;
-
-  return getCurrentTurn(containerId);
-};
-
-
-// 🔹 PLAYER STATS
-const getPlayerStats = (containerId, userId) => {
-  const container = containers.get(containerId);
-  if (!container) return null;
-
-  return container.playerStats[userId] || null;
-};
-
-
-// 🔹 RESET GAME
-const resetContainerGame = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return;
-
-  container.turnOrder = [];
-  container.currentTurnIndex = 0;
-  container.submittedUsers.clear();
-
-  const size = getMatrixSize(container.users.length);
-
-  Object.keys(container.playerStats).forEach(userId => {
-    container.playerStats[userId] = {
-      marked: new Set(),
-      rowCount: new Array(size).fill(0),
-      colCount: new Array(size).fill(0),
-      diagCount: 0,
-      antiDiagCount: 0,
-      score: 0
-    };
-  });
-};
-
-
-// 🔹 CHECK READY
-const isContainerReady = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return false;
-
-  return container.isReady;
-};
-
-
 module.exports = {
   addUserToContainer,
   removeUserFromContainer,
   getUserContainer,
   getContainer,
-  getContainerUsers,
-  generateTurnOrder,
-  getCurrentTurn,
-  nextTurn,
-  getPlayerStats,
-  resetContainerGame,
-  isContainerReady,
   getMatrixSize
 };
