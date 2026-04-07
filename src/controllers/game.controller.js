@@ -13,16 +13,11 @@ exports.startGame = async (req, res) => {
       });
     }
 
-    const io = req.app.get("io"); // ✅ FIX HERE
+    const io = req.app.get("io");
 
-    const result = await gameService.startGame(userId, io); // 🔥 ALSO PASS IO
+    const result = await gameService.startGame(userId, io);
 
-    // 🔥 SOCKET EMIT
-    if (io) {
-      io.to(result.containerId).emit("playerJoined", {
-        userId
-      });
-    }
+    // ❌ NO SOCKET EMIT HERE
 
     return res.status(200).json({
       success: true,
