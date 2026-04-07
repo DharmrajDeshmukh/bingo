@@ -23,12 +23,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-// 🔥 SAFE LOGGER (FIXED)
+// 🔥 SAFE LOGGER
 app.use((req, res, next) => {
   console.log(`\n➡️ ${req.method} ${req.url}`);
   console.log("📦 Body:", req.body);
 
-  // Log AFTER response is sent
   res.on("finish", () => {
     console.log(`⬅️ ${res.statusCode} Response`);
   });
@@ -37,17 +36,21 @@ app.use((req, res, next) => {
 });
 
 
-// ✅ Health check route
+// ✅ Health check
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
 
 
-// ✅ Auth routes
+// 🔐 Auth routes
 app.use("/api/auth", authRoutes);
 
 
-// ❌ 404 handler
+// 🎮 GAME ROUTES  🔥 (THIS WAS MISSING)
+app.use("/api/game", gameRoutes);
+
+
+// ❌ 404 handler (KEEP ALWAYS LAST)
 app.use((req, res) => {
   res.status(404).json({
     success: false,

@@ -20,7 +20,7 @@ router.post("/end", authMiddleware, gameController.endGame);
 // 🧩 SET MATRIX → store user matrix
 router.post("/matrix", authMiddleware, gameController.setMatrix);
 
-router.get("/status", authMiddleware, gameController.getGameStatus);
+
 
 router.post("/play", authMiddleware, gameController.playMove);
 

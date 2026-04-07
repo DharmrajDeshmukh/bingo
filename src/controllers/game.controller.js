@@ -1,8 +1,7 @@
 const gameService = require("../services/game.service");
 
 
-
-// 🎮 START GAME
+// 🎮 START GAME (ONLY JOIN + MATCHMAKING)
 exports.startGame = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -16,12 +15,18 @@ exports.startGame = async (req, res) => {
 
     const result = await gameService.startGame(userId);
 
+    // 🔥 OPTIONAL: notify room (only if needed for UI)
+    if (global.io) {
+      global.io.to(result.containerId).emit("playerJoined", {
+        userId
+      });
+    }
+
     return res.status(200).json({
       success: true,
-      message: result.message,
       data: {
-        userId: result.userId,
-        containerId: result.containerId
+        containerId: result.containerId,
+        status: "searching"
       }
     });
 
@@ -52,10 +57,11 @@ exports.endGame = async (req, res) => {
 
     const result = await gameService.endGame(userId, containerId);
 
+    // ❌ NO SOCKET EMIT (as per your requirement)
+
     return res.status(200).json({
       success: true,
-      message: result.message,
-      data: result
+      message: result.message
     });
 
   } catch (error) {
@@ -85,10 +91,11 @@ exports.leaveGame = async (req, res) => {
 
     const result = await gameService.leaveGame(userId, containerId);
 
+    // ❌ NO SOCKET EMIT (backend handles silently)
+
     return res.status(200).json({
       success: true,
-      message: result.message,
-      data: result
+      message: result.message
     });
 
   } catch (error) {
@@ -103,13 +110,12 @@ exports.leaveGame = async (req, res) => {
 
 
 
-// 🧩 SET MATRIX (store user matrix + trigger game start)
+// 🧩 SET MATRIX (store matrix + start game)
 exports.setMatrix = async (req, res) => {
   try {
     const userId = req.user?.userId;
     const { matrix, containerId } = req.body;
 
-    // ✅ validation
     if (!userId || !matrix || !containerId) {
       return res.status(400).json({
         success: false,
@@ -128,8 +134,7 @@ exports.setMatrix = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: result.message,
-      data: result   // 🔥 includes turnOrder + currentTurn when ready
+      data: result
     });
 
   } catch (error) {
@@ -142,34 +147,9 @@ exports.setMatrix = async (req, res) => {
   }
 };
 
-exports.getGameStatus = async (req, res) => {
-  try {
-    const { containerId } = req.query;
 
-    if (!containerId) {
-      return res.status(400).json({
-        success: false,
-        message: "containerId required"
-      });
-    }
 
-    const result = await gameService.getGameStatus(containerId);
-
-    return res.status(200).json({
-      success: true,
-      data: result
-    });
-
-  } catch (error) {
-    console.error("❌ Status Error:", error.message);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
+// 🎯 PLAY MOVE
 exports.playMove = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -186,7 +166,6 @@ exports.playMove = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: result.message,
       data: result
     });
 

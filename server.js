@@ -8,19 +8,20 @@ const app = require("./src/app");
 const PORT = process.env.PORT || 5000;
 
 
-// ✅ CREATE HTTP SERVER (IMPORTANT)
+// ✅ CREATE HTTP SERVER
 const server = http.createServer(app);
 
 
-// ✅ SETUP SOCKET.IO
+// ✅ SOCKET.IO SETUP
 const io = new Server(server, {
   cors: {
-    origin: "*"
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 });
 
 
-// 🔥 Make io global (so you can use in services)
+// 🔥 MAKE GLOBAL
 global.io = io;
 
 
@@ -28,13 +29,29 @@ global.io = io;
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
-  // ✅ Join room (container)
+  // ✅ JOIN ROOM (IMPORTANT)
   socket.on("joinRoom", ({ containerId }) => {
+    if (!containerId) return;
+
     socket.join(containerId);
+
     console.log(`📦 User joined room: ${containerId}`);
+
+    // 🔥 OPTIONAL: ACKNOWLEDGE JOIN
+    socket.emit("joinedRoom", {
+      containerId
+    });
   });
 
-  // ❌ Disconnect
+
+  // 🔥 OPTIONAL: LEAVE ROOM
+  socket.on("leaveRoom", ({ containerId }) => {
+    socket.leave(containerId);
+    console.log(`🚪 User left room: ${containerId}`);
+  });
+
+
+  // ❌ DISCONNECT
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
   });
@@ -47,14 +64,14 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 
-// ❗ Handle server errors
+// ❗ SERVER ERROR
 server.on("error", (err) => {
   console.error("❌ SERVER ERROR:", err);
   process.exit(1);
 });
 
 
-// ❗ Handle crashes
+// ❗ CRASH HANDLING
 process.on("uncaughtException", (err) => {
   console.error("❌ UNCAUGHT EXCEPTION:", err);
   process.exit(1);

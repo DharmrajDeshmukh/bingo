@@ -1,40 +1,43 @@
 const activeUsers = require("../utils/activeUsers");
 const gameContainer = require("../utils/gameContainer");
+const gameMatrix = require("../utils/gameMatrix");
 
 
-// 🎮 START GAME
 const startGame = async (userId) => {
   if (activeUsers.isUserActive(userId)) {
     const existingContainer = gameContainer.getUserContainer(userId);
 
     return {
-      message: "User already in game",
-      userId,
-      containerId: existingContainer
+      containerId: existingContainer,
+      status: "searching"
     };
   }
 
   activeUsers.addUser(userId);
 
-  let containerId = gameContainer.addUserToContainer(userId);
+  const containerId = gameContainer.addUserToContainer(userId);
 
   const container = gameContainer.getContainer(containerId);
 
-  // 🔥 CHECK IF CONTAINER NEEDS PLAYERS
-  if (container.users.length < 3) {
-    return {
-      message: "Waiting for players...",
-      userId,
-      containerId,
-      status: "waiting"
-    };
+  // 🔥 ADD THIS BLOCK (CRITICAL)
+  if (container && container.users.length >= 2) {
+
+    const size = gameContainer.getMatrixSize(container.users.length);
+
+    if (global.io) {
+      global.io.to(containerId).emit("matchReady", {
+        containerId,
+        players: container.users,
+        matrixSizeNumber: size
+      });
+    }
+
+    console.log("🔥 MATCH READY:", containerId);
   }
 
   return {
-    message: "Joined game successfully",
-    userId,
     containerId,
-    status: "ready"
+    status: "searching"
   };
 };
 
@@ -49,7 +52,6 @@ const endGame = async (userId, containerId) => {
 
   const container = gameContainer.getContainer(containerId);
 
-  // 🔥 CLEAN SUBMISSION
   if (container) {
     container.submittedUsers.delete(userId);
   }
@@ -64,6 +66,9 @@ const endGame = async (userId, containerId) => {
   };
 };
 
+
+
+// 🚪 LEAVE GAME
 const leaveGame = async (userId, containerId) => {
   const actual = gameContainer.getUserContainer(userId);
 
@@ -72,7 +77,6 @@ const leaveGame = async (userId, containerId) => {
 
   const container = gameContainer.getContainer(containerId);
 
-  // 🔥 REMOVE FROM SUBMISSION ALSO
   if (container) {
     container.submittedUsers.delete(userId);
   }
@@ -86,16 +90,13 @@ const leaveGame = async (userId, containerId) => {
   };
 };
 
-const gameMatrix = require("../utils/gameMatrix");
 
 
-// 🎯 SET MATRIX (from frontend)
+// 🎯 SET MATRIX
 const setMatrix = async (userId, containerId, matrix) => {
   const container = gameContainer.getContainer(containerId);
 
-  if (!container) {
-    throw new Error("Invalid container");
-  }
+  if (!container) throw new Error("Invalid container");
 
   const actual = gameContainer.getUserContainer(userId);
 
@@ -107,20 +108,24 @@ const setMatrix = async (userId, containerId, matrix) => {
     throw new Error("Matrix already submitted");
   }
 
+  // 🔥 VALIDATE MATRIX SIZE
+  const expectedSize = gameContainer.getMatrixSize(container.users.length);
+
+  if (matrix.length !== expectedSize) {
+    throw new Error(`Matrix must be ${expectedSize}x${expectedSize}`);
+  }
+
   // ✅ Save matrix
   gameMatrix.setUserMatrix(containerId, userId, matrix);
 
-  // ✅ Mark user as submitted
+  // ✅ Mark submitted
   container.submittedUsers.add(userId);
 
   const totalUsers = container.users.length;
   const submittedUsers = container.submittedUsers.size;
 
-  // 🔥 NEW LOGIC (IMPORTANT)
-  const shouldStart = gameContainer.shouldStartGame(containerId);
-
-  // ⏳ WAIT STATE
-  if (!shouldStart) {
+  // ⏳ WAIT FOR ALL PLAYERS
+  if (submittedUsers < totalUsers) {
     return {
       status: "waiting",
       totalPlayers: totalUsers,
@@ -134,10 +139,8 @@ const setMatrix = async (userId, containerId, matrix) => {
   const turnOrder = gameContainer.generateTurnOrder(containerId);
   const currentTurn = turnOrder[0];
 
-  // 🔒 Lock container (no new users allowed)
   container.isLocked = true;
 
-  // 🔥 REAL-TIME SYNC (SOCKET)
   if (global.io) {
     global.io.to(containerId).emit("gameReady", {
       containerId,
@@ -156,31 +159,13 @@ const setMatrix = async (userId, containerId, matrix) => {
   };
 };
 
-const getGameStatus = async (containerId) => {
-  const container = gameContainer.getContainer(containerId);
-
-  if (!container) {
-    throw new Error("Invalid container");
-  }
-
-  const total = container.users.length;
-  const submitted = container.submittedUsers.size;
-
-  if (submitted < total) {
-    return {
-      status: "waiting",
-      remainingPlayers: total - submitted
-    };
-  }
-
-  return {
-    status: "ready",
-    turnOrder: container.turnOrder,
-    currentTurn: container.turnOrder[container.currentTurnIndex]
-  };
-};
 
 
+
+
+
+
+// 🎯 PLAY MOVE (FULLY DYNAMIC)
 const playMove = async (userId, containerId, move) => {
   const container = gameContainer.getContainer(containerId);
 
@@ -192,16 +177,14 @@ const playMove = async (userId, containerId, move) => {
     throw new Error("Not your turn");
   }
 
-  const size = 5;
-  const WINNING_SCORE = 5;
+  const size = gameContainer.getMatrixSize(container.users.length);
+  const WINNING_SCORE = size; // 🔥 dynamic win
 
   let winner = null;
 
-  // 🔥 YOUR OPTIMIZED LOGIC HERE
   container.users.forEach(uid => {
     const stats = container.playerStats[uid];
 
-    // ❗ avoid double marking
     if (stats.marked.has(move.number)) return;
 
     const position = gameMatrix.getPosition(containerId, uid, move.number);
@@ -226,7 +209,6 @@ const playMove = async (userId, containerId, move) => {
 
     stats.score += newLines;
 
-    // 🏆 CHECK WIN
     if (stats.score >= WINNING_SCORE && !winner) {
       winner = uid;
     }
@@ -240,7 +222,7 @@ const playMove = async (userId, containerId, move) => {
     });
   }
 
-  // 🏆 IF WINNER FOUND → STOP GAME
+  // 🏆 WINNER
   if (winner) {
     if (global.io) {
       global.io.to(containerId).emit("gameFinished", {
@@ -275,7 +257,8 @@ const playMove = async (userId, containerId, move) => {
 module.exports = {
   startGame,
   endGame,
-  leaveGame ,
+  leaveGame,
   setMatrix,
-  getGameStatus
+  
+  playMove
 };
