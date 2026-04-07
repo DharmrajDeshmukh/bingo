@@ -18,8 +18,8 @@ const io = new Server(server, {
   }
 });
 
-// 🔥 MAKE GLOBAL (IMPORTANT)
-global.io = io;
+// ✅ 🔥 ATTACH IO TO EXPRESS
+app.set("io", io);
 
 // 🔌 SOCKET CONNECTION
 io.on("connection", (socket) => {
