@@ -13,11 +13,13 @@ exports.startGame = async (req, res) => {
       });
     }
 
-    const result = await gameService.startGame(userId);
+    const io = req.app.get("io"); // ✅ FIX HERE
 
-    // 🔥 OPTIONAL: notify room (only if needed for UI)
-    if (global.io) {
-      global.io.to(result.containerId).emit("playerJoined", {
+    const result = await gameService.startGame(userId, io); // 🔥 ALSO PASS IO
+
+    // 🔥 SOCKET EMIT
+    if (io) {
+      io.to(result.containerId).emit("playerJoined", {
         userId
       });
     }

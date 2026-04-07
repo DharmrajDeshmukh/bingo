@@ -158,8 +158,8 @@ const removeUserFromContainer = (userId, io) => {
       // 🔥 RESET TIMER IF NEEDED
       if (!container.isReady) {
         container.createdAt = Date.now();
-        container.timerStarted = false;
-        startMatchmaking(id, io);
+      container.timerStarted = false;
+setTimeout(() => startMatchmaking(id, io), 100);
       }
 
       // 🔥 UNLOCK IF BELOW MIN
