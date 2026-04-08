@@ -50,19 +50,26 @@ const findAvailableContainer = () => {
 };
 
 
-// 🔥 EMIT HELPER (CLEAN + REUSABLE)
-const emitGameReady = (io, containerId, payload) => {
-  const room = io.sockets.adapter.rooms.get(containerId);
+// ✅ FINAL EMIT SYSTEM (ONLY THIS)
+const emitWhenReady = (io, containerId, payload) => {
+  let attempts = 0;
 
-  console.log("📡 EMIT DATA:", payload);
-  console.log("👥 ROOM SIZE:", room ? room.size : 0);
+  const interval = setInterval(() => {
+    const room = io.sockets.adapter.rooms.get(containerId);
+    const size = room ? room.size : 0;
 
-  if (room && room.size > 0) {
-    io.to(containerId).emit("game_ready", payload);
-  } else {
-    console.log("⚠️ Fallback emit");
-    io.emit("game_ready", payload);
-  }
+    console.log("👥 Waiting for users in room:", size);
+
+    // ✅ Wait until all users joined OR max retries
+    if (size >= payload.totalUsers || attempts > 10) {
+      clearInterval(interval);
+
+      io.to(containerId).emit("game_ready", payload);
+      console.log("✅ Emitted game_ready:", containerId);
+    }
+
+    attempts++;
+  }, 200);
 };
 
 
@@ -97,7 +104,8 @@ const startMatchmaking = (containerId, io) => {
           users: updated.users
         };
 
-        emitGameReady(io, containerId, payload);
+        // ✅ USE ONLY THIS
+        emitWhenReady(io, containerId, payload);
       }
     }
   }, WAIT_TIME);
@@ -156,7 +164,8 @@ const addUserToContainer = (userId, io) => {
         users: container.users
       };
 
-      emitGameReady(io, containerId, payload);
+      // ✅ USE ONLY THIS
+      emitWhenReady(io, containerId, payload);
     }
   }
 
