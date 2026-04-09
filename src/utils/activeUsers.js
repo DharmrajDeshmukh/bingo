@@ -4,6 +4,7 @@ const rooms = new Map();       // roomId → [userIds]
 let roomCounter = 1;
 const REQUIRED_PLAYERS = 2;
 
+
 // 🔹 ADD USER
 const addUser = (userId, socket, io) => {
 
@@ -16,7 +17,7 @@ const addUser = (userId, socket, io) => {
   console.log(`✅ User added: ${userId}`);
   console.log(`👥 Active Users Count: ${activeUsers.size}`);
 
-  tryMatchmaking(io, socket.server);
+  tryMatchmaking(io); // ✅ FIXED
 };
 
 
@@ -41,7 +42,13 @@ const tryMatchmaking = (io) => {
       const user = activeUsers.get(userId);
 
       if (user?.socketId) {
-        io.sockets.sockets.get(user.socketId)?.join(roomId);
+        const socketInstance = io.sockets.sockets.get(user.socketId);
+
+        if (socketInstance) {
+          socketInstance.join(roomId);
+        } else {
+          console.log("❌ Socket not found for user:", userId);
+        }
       }
 
       activeUsers.delete(userId);
@@ -52,6 +59,8 @@ const tryMatchmaking = (io) => {
       roomId,
       totalUsers: selectedUsers.length
     });
+
+    console.log(`📡 gameReady emitted to ${roomId}`);
   }
 };
 

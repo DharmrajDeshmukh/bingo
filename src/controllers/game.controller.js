@@ -15,9 +15,19 @@ exports.startGame = async (req, res) => {
 
     const io = req.app.get("io");
 
-    const result = await gameService.startGame(userId, io);
+    // 🔥 GET SOCKET
+    const socketMap = req.app.get("socketMap");
+    const socket = socketMap?.get(userId);
 
-    // ❌ NO SOCKET EMIT HERE
+    if (!socket) {
+      return res.status(400).json({
+        success: false,
+        message: "Socket not connected"
+      });
+    }
+
+    // 🔥 PASS SOCKET
+    const result = await gameService.startGame(userId, socket, io);
 
     return res.status(200).json({
       success: true,

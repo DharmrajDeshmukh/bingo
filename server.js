@@ -3,14 +3,19 @@ require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
 
+// ✅ STEP 1: IMPORT APP FIRST
 const app = require("./src/app");
 
-const PORT = process.env.PORT || 5000;
+// ✅ STEP 2: CREATE GLOBAL SOCKET MAP
+const socketMap = new Map();
 
-// ✅ CREATE HTTP SERVER
+// ✅ STEP 3: ATTACH TO EXPRESS (NOW SAFE)
+app.set("socketMap", socketMap);
+
+// ✅ STEP 4: CREATE HTTP SERVER
 const server = http.createServer(app);
 
-// ✅ SOCKET.IO SETUP
+// ✅ STEP 5: SOCKET.IO SETUP
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -18,35 +23,71 @@ const io = new Server(server, {
   }
 });
 
-// ✅ 🔥 ATTACH IO TO EXPRESS
+// ✅ STEP 6: ATTACH IO TO EXPRESS
 app.set("io", io);
 
-// 🔌 SOCKET CONNECTION
+// ================= SOCKET LOGIC ================= //
+
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
+  // 🔥 REGISTER USER
+  socket.on("register", (userId) => {
+    if (!userId) {
+      console.log("⚠️ No userId provided");
+      return;
+    }
+
+    socketMap.set(userId, socket);
+
+    console.log(`✅ User registered: ${userId}`);
+    console.log(`📊 Active users: ${socketMap.size}`);
+  });
+
   // ✅ JOIN ROOM
   socket.on("joinRoom", ({ containerId }) => {
-    if (!containerId) return;
+    if (!containerId) {
+      console.log("⚠️ No containerId");
+      return;
+    }
 
     socket.join(containerId);
 
-    console.log(`📦 User joined room: ${containerId}`);
+    console.log(`📦 Joined room: ${containerId}`);
 
     socket.emit("joinedRoom", { containerId });
   });
 
+  // ✅ LEAVE ROOM
   socket.on("leaveRoom", ({ containerId }) => {
+    if (!containerId) return;
+
     socket.leave(containerId);
-    console.log(`🚪 User left room: ${containerId}`);
+
+    console.log(`🚪 Left room: ${containerId}`);
   });
 
+  // ❌ DISCONNECT
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
+
+    // 🔥 REMOVE USER FROM MAP
+    for (let [userId, sock] of socketMap.entries()) {
+      if (sock.id === socket.id) {
+        socketMap.delete(userId);
+        console.log(`🗑️ Removed user: ${userId}`);
+        break;
+      }
+    }
+
+    console.log(`📊 Active users: ${socketMap.size}`);
   });
 });
 
-// 🚀 START SERVER
+// ================= SERVER START ================= //
+
+const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
