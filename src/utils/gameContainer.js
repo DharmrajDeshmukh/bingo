@@ -19,18 +19,21 @@ const getMatrixSize = (userCount) => {
 const createContainer = () => {
   const containerId = `room_${containerCounter++}`;
 
-  containers.set(containerId, {
-    id: containerId,
-    users: [],
-    turnOrder: [],
-    currentTurnIndex: 0,
-    submittedUsers: new Set(),
-    playerStats: {},
-    createdAt: Date.now(),
-    isLocked: false,
-    isReady: false,
-    timerStarted: false
-  });
+ containers.set(containerId, {
+  id: containerId,
+  users: [],
+  turnOrder: [],
+  currentTurnIndex: 0,
+  submittedUsers: new Set(),
+  playerStats: {},
+  createdAt: Date.now(),
+  isLocked: false,
+  isReady: false,
+  isGameStarted: false,   // ✅ ADD
+  isGameEnded: false,     // ✅ ADD
+  timerStarted: false,
+  bots: new Set()         // ✅ ADD
+});
 
   return containerId;
 };
@@ -38,15 +41,28 @@ const createContainer = () => {
 
 // 🔹 FIND AVAILABLE CONTAINER
 const findAvailableContainer = () => {
+  let bestContainer = null;
+  let oldestTime = Infinity;
+
   for (let [id, container] of containers) {
-    if (
+    const timePassed = Date.now() - container.createdAt;
+
+    const isValid =
       container.users.length < MAX_USERS &&
-      !container.isLocked
-    ) {
-      return id;
+      !container.isLocked &&
+       !container.isGameEnded && 
+      timePassed < WAIT_TIME;
+
+    if (isValid) {
+      // pick oldest container (priority)
+      if (container.createdAt < oldestTime) {
+        oldestTime = container.createdAt;
+        bestContainer = id;
+      }
     }
   }
-  return null;
+
+  return bestContainer;
 };
 
 
@@ -90,6 +106,7 @@ const startMatchmaking = (containerId, io) => {
     if (updated.users.length >= MIN_USERS && !updated.isReady) {
       updated.isReady = true;
       updated.isLocked = true;
+      updated.isGameStarted = true; 
 
       console.log("⏳ 30 sec completed → game ready:", containerId);
 
@@ -119,6 +136,8 @@ const addUserToContainer = (userId, io) => {
 
   let containerId = findAvailableContainer();
 
+  
+
   if (!containerId) {
     containerId = createContainer();
   }
@@ -147,27 +166,36 @@ const addUserToContainer = (userId, io) => {
   startMatchmaking(containerId, io);
 
   // 🚀 INSTANT START
-  if (container.users.length === MAX_USERS && !container.isReady) {
-    container.isReady = true;
-    container.isLocked = true;
+  if (
+  container.users.length === MAX_USERS &&
+  !container.isReady &&
+  !container.isGameEnded
+) {
+  // ✅ Stop matchmaking timer
+  container.timerStarted = false;
 
-    console.log("🚀 Instant start:", containerId);
+  // ✅ Set game state
+  container.isReady = true;
+  container.isLocked = true;
+  container.isGameStarted = true;
 
-    if (io) {
-      const totalUsers = container.users.length;
-      const matrixSize = getMatrixSize(totalUsers);
+  console.log("🚀 Instant start:", containerId);
 
-      const payload = {
-        containerId,
-        totalUsers,
-        matrixSize,
-        users: container.users
-      };
+  if (io) {
+    const totalUsers = container.users.length;
+    const matrixSize = getMatrixSize(totalUsers);
 
-      // ✅ USE ONLY THIS
-      emitWhenReady(io, containerId, payload);
-    }
+    const payload = {
+      containerId,
+      totalUsers,
+      matrixSize,
+      users: [...container.users] // ✅ safe copy
+    };
+
+    // ✅ Emit only when all joined
+    emitWhenReady(io, containerId, payload);
   }
+}
 
   return containerId;
 };
@@ -179,30 +207,77 @@ const removeUserFromContainer = (userId, io) => {
     const index = container.users.indexOf(userId);
 
     if (index !== -1) {
-      container.users.splice(index, 1);
 
-      container.submittedUsers.delete(userId);
-      delete container.playerStats[userId];
+      // 🔥 CASE 1: BEFORE GAME START
+      if (!container.isGameStarted) {
+        container.users.splice(index, 1);
 
-      if (!container.isReady) {
-        container.createdAt = Date.now();
-        container.timerStarted = false;
-        setTimeout(() => startMatchmaking(id, io), 100);
+        delete container.playerStats[userId];
+        container.submittedUsers.delete(userId);
+
+        const timePassed = Date.now() - container.createdAt;
+
+        // ⏳ If still time left → allow refill
+        if (timePassed < WAIT_TIME) {
+          console.log("⏳ User left, still waiting...");
+        } 
+        else {
+          // ⛔ Time finished
+          if (container.users.length >= MIN_USERS) {
+            console.log("✅ Enough players → start game");
+          } else {
+            console.log("❌ Not enough players → destroy container");
+            containers.delete(id);
+          }
+        }
+
+        return id;
       }
 
-      if (container.users.length < MIN_USERS && !container.isReady) {
-        container.isLocked = false;
-      }
+      // 🔥 CASE 2: GAME STARTED
+    // 🔥 CASE 2: GAME STARTED
+if (container.isGameStarted && !container.isGameEnded) {
 
-      if (container.users.length === 0) {
-        containers.delete(id);
-      }
+  console.log(`⚠️ User left during game: ${userId}`);
 
-      return id;
+  // ❌ Bot system disabled for now
+  // const botId = `bot_${userId}_${Date.now()}`;
+  // container.users[index] = botId;
+  // container.bots.add(botId);
+
+  // ✅ For now → just remove user
+  container.users.splice(index, 1);
+  delete container.playerStats[userId];
+
+  return id;
+}
+
+      // 🔥 CASE 3: GAME ENDED → CLEANUP
+      if (container.isGameEnded) {
+        container.users.splice(index, 1);
+        delete container.playerStats[userId];
+
+        if (container.users.length === 0) {
+          console.log("🗑️ Container destroyed:", id);
+          containers.delete(id);
+        }
+
+        return id;
+      }
     }
   }
 
   return null;
+};
+
+
+const endGame = (containerId) => {
+  const container = containers.get(containerId);
+  if (!container) return;
+
+  container.isGameEnded = true;
+
+  console.log("🏁 Game ended:", containerId);
 };
 
 
