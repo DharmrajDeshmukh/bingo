@@ -1,52 +1,58 @@
 const activeUsers = new Map();
+const rooms = new Map();
 
-const WAIT_TIME = 30 * 1000; // 30 sec
+let roomCounter = 1;
+const REQUIRED_PLAYERS = 2;
 
-// 🔹 ADD USER (with auto-remove timer)
-const addUser = (userId) => {
+// 🔹 ADD USER
+const addUser = (userId, io) => {
+
   if (activeUsers.has(userId)) return;
 
-  const timeout = setTimeout(() => {
-    if (activeUsers.has(userId)) {
-      activeUsers.delete(userId);
-      console.log(`❌ Auto removed after 30s: ${userId}`);
-      console.log(`👥 Active Users Count: ${activeUsers.size}`);
-    }
-  }, 30 * 1000);
-
-  activeUsers.set(userId, {
-    startTime: Date.now(),
-    timeout
-  });
+  activeUsers.set(userId, {});
 
   console.log(`✅ User added: ${userId}`);
   console.log(`👥 Active Users Count: ${activeUsers.size}`);
+
+  tryMatchmaking(io);
 };
 
-// 🔹 REMOVE USER (important)
-const removeUser = (userId) => {
-  const user = activeUsers.get(userId);
-  if (!user) return;
 
-  if (user.timeout) {
-    clearTimeout(user.timeout);
+// 🔥 MATCHMAKING FUNCTION
+const tryMatchmaking = (io) => {
+
+  const users = Array.from(activeUsers.keys());
+
+  while (users.length >= REQUIRED_PLAYERS) {
+
+    const selectedUsers = users.splice(0, REQUIRED_PLAYERS);
+
+    const roomId = `room_${roomCounter++}`;
+
+    rooms.set(roomId, selectedUsers);
+
+    console.log(`🔥 Room created: ${roomId}`);
+    console.log(`👥 Users in room:`, selectedUsers);
+
+    // ❌ remove from waiting
+    selectedUsers.forEach(userId => {
+      activeUsers.delete(userId);
+    });
+
+    // 🔥 EMIT GAME READY
+    io.to(roomId).emit("gameReady", {
+      totalUsers: selectedUsers.length
+    });
   }
-
-  activeUsers.delete(userId);
-
-  console.log(`🗑️ User removed: ${userId}`);
-  console.log(`👥 Active Users Count: ${activeUsers.size}`);
 };
 
 
-
-// 🔹 CHECK USER
-const isUserActive = (userId) => {
-  return activeUsers.has(userId);
+// 🔹 REMOVE USER
+const removeUser = (userId) => {
+  activeUsers.delete(userId);
 };
 
 module.exports = {
   addUser,
-  removeUser,
-  isUserActive
+  removeUser
 };
