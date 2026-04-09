@@ -1,20 +1,22 @@
-const activeUsers = new Map();
-const rooms = new Map();
+const activeUsers = new Map(); // userId → { socketId }
+const rooms = new Map();       // roomId → [userIds]
 
 let roomCounter = 1;
 const REQUIRED_PLAYERS = 2;
 
 // 🔹 ADD USER
-const addUser = (userId, io) => {
+const addUser = (userId, socket, io) => {
 
   if (activeUsers.has(userId)) return;
 
-  activeUsers.set(userId, {});
+  activeUsers.set(userId, {
+    socketId: socket.id
+  });
 
   console.log(`✅ User added: ${userId}`);
   console.log(`👥 Active Users Count: ${activeUsers.size}`);
 
-  tryMatchmaking(io);
+  tryMatchmaking(io, socket.server);
 };
 
 
@@ -34,13 +36,20 @@ const tryMatchmaking = (io) => {
     console.log(`🔥 Room created: ${roomId}`);
     console.log(`👥 Users in room:`, selectedUsers);
 
-    // ❌ remove from waiting
+    // ✅ JOIN USERS TO ROOM
     selectedUsers.forEach(userId => {
+      const user = activeUsers.get(userId);
+
+      if (user?.socketId) {
+        io.sockets.sockets.get(user.socketId)?.join(roomId);
+      }
+
       activeUsers.delete(userId);
     });
 
     // 🔥 EMIT GAME READY
     io.to(roomId).emit("gameReady", {
+      roomId,
       totalUsers: selectedUsers.length
     });
   }
@@ -52,7 +61,15 @@ const removeUser = (userId) => {
   activeUsers.delete(userId);
 };
 
+
+// 🔹 CHECK USER
+const isUserActive = (userId) => {
+  return activeUsers.has(userId);
+};
+
+
 module.exports = {
   addUser,
-  removeUser
+  removeUser,
+  isUserActive
 };

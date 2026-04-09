@@ -13,7 +13,7 @@ const startGame = async (userId , io) => {
     };
   }
 
-  activeUsers.addUser(userId);
+  activeUsers.addUser(userId , io);
 
   const containerId = gameContainer.addUserToContainer(userId , io);
 
