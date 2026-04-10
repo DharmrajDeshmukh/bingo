@@ -134,7 +134,7 @@ updated.currentTurnIndex = 0;
 
         // ✅ USE ONLY THIS
         if (io) {
-  emitWhenReady(io, containerId, payload);
+  
 } else {
   console.log("❌ IO is undefined, skipping emit");
 }
@@ -220,7 +220,7 @@ container.currentTurnIndex = 0;
     users: [...container.users]
   };
 
-  emitWhenReady(io, containerId, payload);
+ 
 } else {
   console.log("❌ IO is undefined");
 }

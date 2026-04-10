@@ -6,6 +6,7 @@ const gameMatrix = require("../utils/gameMatrix");
 
 const startGame = async (userId, socket, io) => {
 
+  // 🔁 अगर user already game में है
   if (activeUsers.isUserActive(userId)) {
     const existingContainer = gameContainer.getUserContainer(userId);
 
@@ -18,8 +19,10 @@ const startGame = async (userId, socket, io) => {
     };
   }
 
+  // ✅ add user active
   activeUsers.addUser(userId, io);
 
+  // ✅ add user to container
   const result = gameContainer.addUserToContainer(userId, io);
   const containerId = result.containerId;
 
@@ -27,10 +30,39 @@ const startGame = async (userId, socket, io) => {
     throw new Error("Failed to create/join container");
   }
 
+  // ✅ get container
   const container = gameContainer.getContainer(containerId);
 
-  if (socket && containerId) {
+  // ✅ STEP 1: socket join FIRST (MOST IMPORTANT)
+  if (socket) {
     socket.join(containerId);
+    console.log("📦 Socket joined:", containerId);
+  }
+
+  // ✅ STEP 2: SAFE GAME START (NO CRASH)
+  if (
+    io &&
+    container &&
+    container.users.length >= 2 &&
+    !container.isReady
+  ) {
+    container.isReady = true;
+    container.isLocked = true;
+    container.isGameStarted = true;
+
+    container.turnOrder = [...container.users];
+    container.currentTurnIndex = 0;
+
+    const payload = {
+      containerId,
+      totalUsers: container.users.length,
+      matrixSize: gameContainer.getMatrixSize(container.users.length),
+      users: [...container.users]
+    };
+
+    io.to(containerId).emit("gameReady", payload);
+
+    console.log("🔥 GAME STARTED:", containerId);
   }
 
   return {
