@@ -146,48 +146,45 @@ updated.currentTurnIndex = 0;
 
 
 // 🔹 ADD USER TO CONTAINER
-const addUserToContainer = (userId, io) => {
-  const existing = getUserContainer(userId);
-if (existing) {
-  if (io && io.sockets) {
-    console.log("🔁 Rejoining existing room:", existing);
+const addUserToContainer = (userId) => {
+
+  if (!userId) {
+    throw new Error("Invalid userId");
   }
 
-  return {
-    containerId: existing,
-    status: "already_joined"
-  };
-}
+  // 🔁 already in container
+  const existing = getUserContainer(userId);
+  if (existing) {
+    return {
+      containerId: existing,
+      status: "already_joined"
+    };
+  }
 
- let containerId = findAvailableContainer();
+  let containerId = findAvailableContainer();
 
-// 🔥 FIX: if no container → create new
-if (!containerId) {
-  containerId = createContainer();
-}
+  // ✅ ALWAYS create if not found
+  if (!containerId) {
+    containerId = createContainer();
+  }
 
-let container = containers.get(containerId);
+  let container = containers.get(containerId);
 
-// 🔥 SAFETY CHECK
-if (!container) {
-  containerId = createContainer();
-  container = containers.get(containerId);
-}
+  // ✅ FINAL SAFETY
+  if (!container) {
+    throw new Error("Container not found after creation");
+  }
 
-// 🔥 IF LOCKED → NEW CONTAINER
-if (container.isLocked) {
-  containerId = createContainer();
-  container = containers.get(containerId);
-}
-
-  // ✅ ADD USER
-  container.users.push(userId);
+  // 🔥 PREVENT DUPLICATE
+  if (!container.users.includes(userId)) {
+    container.users.push(userId);
+  }
 
   console.log("👤 User added:", userId, "→", containerId);
-  console.log("👥 Total users:", container.users.length);
 
-  // 🔥 INIT STATS
+  // ✅ INIT STATS
   const size = getMatrixSize(container.users.length);
+
   container.playerStats[userId] = {
     marked: new Set(),
     rowCount: new Array(size).fill(0),
@@ -197,46 +194,26 @@ if (container.isLocked) {
     score: 0
   };
 
+  // 🔥 START GAME
+  if (
+    container.users.length >= MIN_USERS &&
+    !container.isGameEnded &&
+    !container.isReady
+  ) {
+    container.isReady = true;
+    container.isLocked = true;
+    container.isGameStarted = true;
 
-  // 🔥 INSTANT START (MIN USERS)
-if (
-  container.users.length >= MIN_USERS &&
-  !container.isGameEnded &&
-  !container.isReady   // ✅ ADD THIS
-) {
-  container.isReady = true;
-  container.isLocked = true;
-  container.isGameStarted = true;
-  container.turnOrder = [...container.users];
-container.currentTurnIndex = 0;
+    container.turnOrder = [...container.users];
+    container.currentTurnIndex = 0;
 
-  console.log("🔥 INSTANT GAME START:", containerId);
+    console.log("🔥 GAME START:", containerId);
+  }
 
-  if (io) {
-  const payload = {
+  return {
     containerId,
-    totalUsers: container.users.length,
-    matrixSize: getMatrixSize(container.users.length),
-    users: [...container.users]
+    status: "joined"
   };
-
- 
-} else {
-  console.log("❌ IO is undefined");
-}
-  
-}
-  // 🔥 START MATCHMAKING TIMER (fallback)
-  startMatchmaking(containerId, io);
-
- 
-
-
-
- return {
-  containerId,
-  status: "joined"
-};
 };
 
 
