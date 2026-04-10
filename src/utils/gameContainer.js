@@ -134,7 +134,7 @@ updated.currentTurnIndex = 0;
 
         // ✅ USE ONLY THIS
         if (io) {
-  
+  emitWhenReady(io, containerId, payload);
 } else {
   console.log("❌ IO is undefined, skipping emit");
 }
@@ -146,7 +146,7 @@ updated.currentTurnIndex = 0;
 
 
 // 🔹 ADD USER TO CONTAINER
-const addUserToContainer = (userId) => {
+const addUserToContainer = (userId , io) => {
 
   if (!userId) {
     throw new Error("Invalid userId");
@@ -163,26 +163,34 @@ const addUserToContainer = (userId) => {
 
   let containerId = findAvailableContainer();
 
-  // ✅ ALWAYS create if not found
+  // ✅ CREATE NEW IF NOT FOUND
   if (!containerId) {
     containerId = createContainer();
   }
 
   let container = containers.get(containerId);
 
-  // ✅ FINAL SAFETY
+  // 🔥 FINAL SAFETY FIX (CRASH FIX)
   if (!container) {
-    throw new Error("Container not found after creation");
+    console.log("❌ Container missing, recreating...");
+    containerId = createContainer();
+    container = containers.get(containerId);
+
+    if (!container) {
+      throw new Error("Container creation failed");
+    }
   }
 
-  // 🔥 PREVENT DUPLICATE
+  // 🔥 PREVENT DUPLICATE USER
   if (!container.users.includes(userId)) {
     container.users.push(userId);
   }
 
   console.log("👤 User added:", userId, "→", containerId);
 
-  // ✅ INIT STATS
+  startMatchmaking(containerId, io);
+
+  // ✅ INIT PLAYER STATS
   const size = getMatrixSize(container.users.length);
 
   container.playerStats[userId] = {
@@ -194,7 +202,7 @@ const addUserToContainer = (userId) => {
     score: 0
   };
 
-  // 🔥 START GAME
+  // 🔥 START GAME CONDITION
   if (
     container.users.length >= MIN_USERS &&
     !container.isGameEnded &&
