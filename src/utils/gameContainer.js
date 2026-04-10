@@ -134,18 +134,26 @@ const addUserToContainer = (userId, io) => {
   const existing = getUserContainer(userId);
   if (existing) return existing;
 
-  let containerId = findAvailableContainer();
+ let containerId = findAvailableContainer();
 
-  if (!containerId) {
-    containerId = createContainer();
-  }
+// 🔥 FIX: if no container → create new
+if (!containerId) {
+  containerId = createContainer();
+}
 
-  let container = containers.get(containerId);
+let container = containers.get(containerId);
 
-  if (container.isLocked) {
-    containerId = createContainer();
-    container = containers.get(containerId);
-  }
+// 🔥 SAFETY CHECK
+if (!container) {
+  containerId = createContainer();
+  container = containers.get(containerId);
+}
+
+// 🔥 IF LOCKED → NEW CONTAINER
+if (container.isLocked) {
+  containerId = createContainer();
+  container = containers.get(containerId);
+}
 
   // ✅ ADD USER
   container.users.push(userId);
@@ -164,29 +172,36 @@ const addUserToContainer = (userId, io) => {
     score: 0
   };
 
+
+  // 🔥 INSTANT START (MIN USERS)
+if (
+  container.users.length >= MIN_USERS &&
+  !container.isGameEnded &&
+  !container.isReady   // ✅ ADD THIS
+) {
+  container.isReady = true;
+  container.isLocked = true;
+  container.isGameStarted = true;
+
+  console.log("🔥 INSTANT GAME START:", containerId);
+
+  if (io) {
+    const payload = {
+      containerId,
+      totalUsers: container.users.length,
+      matrixSize: getMatrixSize(container.users.length),
+      users: [...container.users]
+    };
+
+    emitWhenReady(io, containerId, payload);
+  }
+}
   // 🔥 START MATCHMAKING TIMER (fallback)
   startMatchmaking(containerId, io);
 
  
 
-  // 🚀 OPTIONAL: MAX USERS INSTANT START (already covered but safe)
-  if (
-    container.users.length === MAX_USERS &&
-    !container.isGameEnded
-  ) {
-    console.log("🚀 MAX USERS START:", containerId);
 
-    if (io) {
-      const payload = {
-        containerId,
-        totalUsers: container.users.length,
-        matrixSize: getMatrixSize(container.users.length),
-        users: [...container.users]
-      };
-
-      emitWhenReady(io, containerId, payload);
-    }
-  }
 
   return containerId;
 };

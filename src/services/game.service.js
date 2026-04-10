@@ -25,6 +25,9 @@ const startGame = async (userId, socket, io) => {
   activeUsers.addUser(userId, io);
 
   const containerId = gameContainer.addUserToContainer(userId, io);
+  if (!containerId) {
+  throw new Error("Failed to create/join container");
+}
   const container = gameContainer.getContainer(containerId);
 
   // 🔥 Join socket room (VERY IMPORTANT)
@@ -42,9 +45,7 @@ const startGame = async (userId, socket, io) => {
   };
 };
 
-module.exports = {
-  startGame
-};
+
 
 
 // 🏁 END GAME
