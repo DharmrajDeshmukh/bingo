@@ -17,6 +17,12 @@ exports.startGame = async (req, res) => {
     }
 
     const io = req.app.get("io");
+    if (!io) {
+  return res.status(500).json({
+    success: false,
+    message: "Socket server not initialized"
+  });
+}
 
     // 🔥 GET SOCKET
     const socketMap = req.app.get("socketMap");

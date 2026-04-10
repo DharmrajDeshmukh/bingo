@@ -122,7 +122,11 @@ const startMatchmaking = (containerId, io) => {
         };
 
         // ✅ USE ONLY THIS
-        emitWhenReady(io, containerId, payload);
+        if (io) {
+  emitWhenReady(io, containerId, payload);
+} else {
+  console.log("❌ IO is undefined, skipping emit");
+}
       }
     }
   }, WAIT_TIME);
@@ -193,7 +197,11 @@ if (
       users: [...container.users]
     };
 
-    emitWhenReady(io, containerId, payload);
+    if (io) {
+  emitWhenReady(io, containerId, payload);
+} else {
+  console.log("❌ IO is undefined, skipping emit");
+}
   }
 }
   // 🔥 START MATCHMAKING TIMER (fallback)
