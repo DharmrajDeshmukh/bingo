@@ -39,10 +39,7 @@ const startGame = async (userId, socket, io) => {
   // Already handled in container.service via:
   // emitWhenReady()
 
-  return {
-    containerId,
-    isReady: container?.isGameStarted || false
-  };
+  return containerId;
 };
 
 
