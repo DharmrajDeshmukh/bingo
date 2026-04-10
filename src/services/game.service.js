@@ -12,6 +12,7 @@ const startGame = async (userId, socket, io) => {
 
     if (socket && existingContainer) {
       socket.join(existingContainer);
+      console.log("🔁 Rejoined:", existingContainer);
     }
 
     return {
@@ -19,12 +20,12 @@ const startGame = async (userId, socket, io) => {
     };
   }
 
-  // ✅ add user active
+  // ✅ mark user active
   activeUsers.addUser(userId, io);
 
   // ✅ add user to container
   const result = gameContainer.addUserToContainer(userId, io);
-  const containerId = result.containerId;
+  const containerId = result?.containerId;
 
   if (!containerId) {
     throw new Error("Failed to create/join container");
@@ -33,26 +34,18 @@ const startGame = async (userId, socket, io) => {
   // ✅ get container
   const container = gameContainer.getContainer(containerId);
 
-  // ✅ STEP 1: socket join FIRST (MOST IMPORTANT)
+  // ✅ STEP 1: JOIN FIRST (CRITICAL)
   if (socket) {
     socket.join(containerId);
     console.log("📦 Socket joined:", containerId);
   }
 
-  // ✅ STEP 2: SAFE GAME START (NO CRASH)
+  // ✅ STEP 2: EMIT ONLY (STATE ALREADY HANDLED IN CONTAINER)
   if (
     io &&
     container &&
-    container.users.length >= 2 &&
-    !container.isReady
+    container.isGameStarted // ✅ ONLY CHECK THIS
   ) {
-    container.isReady = true;
-    container.isLocked = true;
-    container.isGameStarted = true;
-
-    container.turnOrder = [...container.users];
-    container.currentTurnIndex = 0;
-
     const payload = {
       containerId,
       totalUsers: container.users.length,
@@ -62,7 +55,7 @@ const startGame = async (userId, socket, io) => {
 
     io.to(containerId).emit("gameReady", payload);
 
-    console.log("🔥 GAME STARTED:", containerId);
+    console.log("🔥 GAME READY EMITTED:", containerId);
   }
 
   return {
