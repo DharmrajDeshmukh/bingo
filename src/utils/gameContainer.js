@@ -71,18 +71,23 @@ const emitWhenReady = (io, containerId, payload) => {
   let attempts = 0;
 
   const interval = setInterval(() => {
-    if (!io || !io.to) {
-      console.log("❌ IO invalid");
-      clearInterval(interval);
-      return;
-    }
+   if (!io || !io.to) {
+  console.log("⏳ IO not ready, retrying...");
+  attempts++;
+  return; // ❌ interval बंद मत करो
+}
 
-    const room = io.sockets.adapter.rooms.get(containerId);
+   if (!io || !io.sockets || !io.sockets.adapter) {
+  console.log("❌ Socket adapter not ready");
+  return;
+}
+
+const room = io.sockets.adapter.rooms.get(containerId);
     const size = room ? room.size : 0;
 
     console.log("👥 Waiting:", size);
 
-    if (size >= payload.totalUsers || attempts > 50) {
+    if (size >= payload.totalUsers) {
       clearInterval(interval);
 
       io.to(containerId).emit("gameReady", payload);
@@ -143,7 +148,11 @@ updated.currentTurnIndex = 0;
 // 🔹 ADD USER TO CONTAINER
 const addUserToContainer = (userId, io) => {
   const existing = getUserContainer(userId);
- if (existing) {
+if (existing) {
+  if (io && io.sockets) {
+    console.log("🔁 Rejoining existing room:", existing);
+  }
+
   return {
     containerId: existing,
     status: "already_joined"
