@@ -307,11 +307,51 @@ const getContainer = (containerId) => {
   return containers.get(containerId);
 };
 
+const turnOrders = new Map(); // containerId → turn array
+const currentTurnIndex = new Map();
+
+const generateTurnOrder = (containerId) => {
+  const container = getContainer(containerId);
+  if (!container) return [];
+
+  const users = [...container.users];
+
+  // simple shuffle
+  const shuffled = users.sort(() => Math.random() - 0.5);
+
+  turnOrders.set(containerId, shuffled);
+  currentTurnIndex.set(containerId, 0);
+
+  return shuffled;
+};
+
+const getCurrentTurn = (containerId) => {
+  const order = turnOrders.get(containerId);
+  const index = currentTurnIndex.get(containerId) || 0;
+
+  return order ? order[index] : null;
+};
+
+const nextTurn = (containerId) => {
+  const order = turnOrders.get(containerId);
+  if (!order) return null;
+
+  let index = currentTurnIndex.get(containerId) || 0;
+  index = (index + 1) % order.length;
+
+  currentTurnIndex.set(containerId, index);
+
+  return order[index];
+};
+
 
 module.exports = {
   addUserToContainer,
   removeUserFromContainer,
   getUserContainer,
   getContainer,
-  getMatrixSize
+  getMatrixSize,
+  generateTurnOrder,
+  getCurrentTurn,
+  nextTurn
 };
