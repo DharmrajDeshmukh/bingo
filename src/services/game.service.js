@@ -24,7 +24,7 @@ const startGame = async (userId, socket, io) => {
   activeUsers.addUser(userId);
 
   // ✅ add user to container
-  const result = gameContainer.addUserToContainer(userId);
+  const result = gameContainer.addUserToContainer(userId , io);
   const containerId = result?.containerId;
 
   if (!containerId) {
