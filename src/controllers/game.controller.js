@@ -2,6 +2,9 @@ const gameService = require("../services/game.service");
 
 
 // 🎮 START GAME (ONLY JOIN + MATCHMAKING)
+
+const { getContainer } = require("../utils/gameContainer");
+
 exports.startGame = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -26,14 +29,23 @@ exports.startGame = async (req, res) => {
       });
     }
 
-    // 🔥 PASS SOCKET
+    // 🔥 CALL SERVICE
     const result = await gameService.startGame(userId, socket, io);
+
+    // 🔥 GET CONTAINER STATE
+    const container = getContainer(result.containerId);
+
+    let status = "searching";
+
+    if (container && container.isGameStarted) {
+      status = "ready";
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         containerId: result.containerId,
-        status: "searching"
+        status
       }
     });
 

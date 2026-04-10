@@ -2,48 +2,48 @@ const activeUsers = require("../utils/activeUsers");
 const gameContainer = require("../utils/gameContainer");
 const gameMatrix = require("../utils/gameMatrix");
 
-// 🎮 START GAME
-const startGame = async (userId, io) => {
 
-  // 🔁 अगर user already game में है
+
+const startGame = async (userId, socket, io) => {
+
+  // 🔁 If user already in game
   if (activeUsers.isUserActive(userId)) {
     const existingContainer = gameContainer.getUserContainer(userId);
 
+    // 🔥 Ensure socket joins room again (important)
+    if (socket && existingContainer) {
+      socket.join(existingContainer);
+    }
+
     return {
       containerId: existingContainer,
-      status: "searching"
+      isReady: false
     };
   }
 
-  // ✅ add user
+  // ✅ Add user
   activeUsers.addUser(userId, io);
 
   const containerId = gameContainer.addUserToContainer(userId, io);
   const container = gameContainer.getContainer(containerId);
 
-  // 🔥🔥 MAIN FIX → GAME READY TRIGGER
-  if (container && container.users.length >= 2 && !container.isReady) {
-
-    container.isReady = true;
-    container.isLocked = true;
-    container.isGameStarted = true;
-
-    console.log("🔥 GAME READY TRIGGERED:", containerId);
-
-    if (io) {
-      io.to(containerId).emit("gameReady", {
-        containerId,
-        totalUsers: container.users.length,
-        matrixSize: gameContainer.getMatrixSize(container.users.length),
-        users: [...container.users]
-      });
-    }
+  // 🔥 Join socket room (VERY IMPORTANT)
+  if (socket && containerId) {
+    socket.join(containerId);
   }
+
+  // ❌ DO NOT manually emit gameReady here
+  // Already handled in container.service via:
+  // emitWhenReady()
 
   return {
     containerId,
-    status: "searching"
+    isReady: container?.isGameStarted || false
   };
+};
+
+module.exports = {
+  startGame
 };
 
 
