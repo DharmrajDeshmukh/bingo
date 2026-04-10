@@ -71,17 +71,22 @@ const emitWhenReady = (io, containerId, payload) => {
   let attempts = 0;
 
   const interval = setInterval(() => {
+    if (!io || !io.to) {
+      console.log("❌ IO invalid");
+      clearInterval(interval);
+      return;
+    }
+
     const room = io.sockets.adapter.rooms.get(containerId);
     const size = room ? room.size : 0;
 
-    console.log("👥 Waiting for users in room:", size);
+    console.log("👥 Waiting:", size);
 
-    // ✅ Wait until all users joined OR max retries
-    if (size >= payload.totalUsers || attempts > 10) {
+    if (size >= payload.totalUsers || attempts > 50) {
       clearInterval(interval);
 
       io.to(containerId).emit("gameReady", payload);
-      console.log("✅ Emitted game_ready:", containerId);
+      console.log("✅ gameReady emitted:", containerId);
     }
 
     attempts++;
@@ -105,10 +110,11 @@ const startMatchmaking = (containerId, io) => {
 
     if (updated.users.length >= MIN_USERS && !updated.isReady) {
       updated.isReady = true;
-      updated.isLocked = true;
-      updated.isGameStarted = true; 
+updated.isLocked = true;
+updated.isGameStarted = true;
 
-      console.log("⏳ 30 sec completed → game ready:", containerId);
+updated.turnOrder = [...updated.users];
+updated.currentTurnIndex = 0;
 
       if (io) {
         const totalUsers = updated.users.length;
@@ -133,10 +139,16 @@ const startMatchmaking = (containerId, io) => {
 };
 
 
+
 // 🔹 ADD USER TO CONTAINER
 const addUserToContainer = (userId, io) => {
   const existing = getUserContainer(userId);
-  if (existing) return existing;
+ if (existing) {
+  return {
+    containerId: existing,
+    status: "already_joined"
+  };
+}
 
  let containerId = findAvailableContainer();
 
@@ -186,23 +198,24 @@ if (
   container.isReady = true;
   container.isLocked = true;
   container.isGameStarted = true;
+  container.turnOrder = [...container.users];
+container.currentTurnIndex = 0;
 
   console.log("🔥 INSTANT GAME START:", containerId);
 
   if (io) {
-    const payload = {
-      containerId,
-      totalUsers: container.users.length,
-      matrixSize: getMatrixSize(container.users.length),
-      users: [...container.users]
-    };
+  const payload = {
+    containerId,
+    totalUsers: container.users.length,
+    matrixSize: getMatrixSize(container.users.length),
+    users: [...container.users]
+  };
 
-    if (io) {
   emitWhenReady(io, containerId, payload);
 } else {
-  console.log("❌ IO is undefined, skipping emit");
+  console.log("❌ IO is undefined");
 }
-  }
+  
 }
   // 🔥 START MATCHMAKING TIMER (fallback)
   startMatchmaking(containerId, io);
@@ -211,7 +224,10 @@ if (
 
 
 
-  return containerId;
+ return {
+  containerId,
+  status: "joined"
+};
 };
 
 
