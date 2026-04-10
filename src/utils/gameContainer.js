@@ -101,29 +101,30 @@ const startMatchmaking = (containerId, io) => {
   if (updated.isReady) return;
 
   // ✅ SUCCESS CASE (2–5 users after 30 sec)
-  if (totalUsers >= MIN_USERS) {
+if (totalUsers >= MIN_USERS) {
 
-    updated.isReady = true;
-    updated.isLocked = true;
-    updated.isGameStarted = true;
+  updated.isReady = true;
+  updated.isLocked = true;
+  updated.isGameStarted = true;
 
-    updated.turnOrder = [...updated.users];
-    updated.currentTurnIndex = 0;
+  updated.submittedUsers.clear();   // ✅ FIX
 
-    emitRoomUpdate(io, containerId, updated);
+  updated.turnOrder = [...updated.users];
+  updated.currentTurnIndex = 0;
 
-    const payload = {
-      containerId,
-      totalUsers,
-      matrixSize: getMatrixSize(totalUsers),
-      users: updated.users
-    };
+  emitRoomUpdate(io, containerId, updated);
 
-    // 🔥 EMIT AFTER 30 SEC ONLY
-    io.to(containerId).emit("gameReady", payload);
+  if (!containers.has(containerId)) return; // ✅ SAFETY
 
-    console.log("🔥 GAME START AFTER 30 SEC:", containerId);
-  }
+  io.to(containerId).emit("gameReady", {
+    roomId: containerId,   // ✅ CORRECT
+    totalUsers,
+    matrixSize: getMatrixSize(totalUsers),
+    users: updated.users
+  });
+
+  console.log("🔥 GAME START AFTER 30 SEC:", containerId);
+}
 
   // ❌ FAIL CASE
   else {
