@@ -6,20 +6,18 @@ const gameMatrix = require("../utils/gameMatrix");
 
 const startGame = async (userId, socket, io) => {
 
-  // 🔁 अगर user already game में है
-  if (activeUsers.isUserActive(userId)) {
-    const existingContainer = gameContainer.getUserContainer(userId);
+  const existingContainer = gameContainer.getUserContainer(userId);
 
-    if (socket && existingContainer) {
-      socket.join(existingContainer);
-      console.log("🔁 Rejoined:", existingContainer);
-    }
-
-    return {
-      containerId: existingContainer
-    };
+if (existingContainer) {
+  if (socket) {
+    socket.join(existingContainer);
+    console.log("🔁 Rejoined:", existingContainer);
   }
 
+  return {
+    containerId: existingContainer
+  };
+}
 
 
   // ✅ add user to container
@@ -81,7 +79,6 @@ const endGame = async (userId, containerId, io) => {
     container.submittedUsers.delete(userId);
   }
 
-  activeUsers.removeUser(userId);
   gameContainer.removeUserFromContainer(userId);
 
   return {
