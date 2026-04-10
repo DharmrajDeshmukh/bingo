@@ -7,6 +7,7 @@ const MIN_USERS = 2;
 const WAIT_TIME = 30000; // 30 sec
 
 
+
 // 🔥 MATRIX SIZE LOGIC
 const getMatrixSize = (userCount) => {
   if (userCount === 2) return 5;
@@ -14,6 +15,18 @@ const getMatrixSize = (userCount) => {
   return 7;
 };
 
+
+const emitRoomUpdate = (io, containerId, container) => {
+  if (!io || !container) return;
+
+  io.to(containerId).emit("roomUpdate", {
+    containerId,
+    totalUsers: container.users.length,
+    users: container.users
+  });
+
+  console.log("📡 roomUpdate:", container.users.length);
+};
 
 // 🔹 CREATE CONTAINER
 const createContainer = () => {
@@ -66,37 +79,7 @@ const findAvailableContainer = () => {
 };
 
 
-// ✅ FINAL EMIT SYSTEM (ONLY THIS)
-const emitWhenReady = (io, containerId, payload) => {
-  let attempts = 0;
 
-  const interval = setInterval(() => {
-   if (!io || !io.to) {
-  console.log("⏳ IO not ready, retrying...");
-  attempts++;
-  return; // ❌ interval बंद मत करो
-}
-
-   if (!io || !io.sockets || !io.sockets.adapter) {
-  console.log("❌ Socket adapter not ready");
-  return;
-}
-
-const room = io.sockets.adapter.rooms.get(containerId);
-    const size = room ? room.size : 0;
-
-    console.log("👥 Waiting:", size);
-
-    if (size >= payload.totalUsers) {
-      clearInterval(interval);
-
-      io.to(containerId).emit("gameReady", payload);
-      console.log("✅ gameReady emitted:", containerId);
-    }
-
-    attempts++;
-  }, 200);
-};
 
 
 // 🔥 START MATCHMAKING TIMER
@@ -109,39 +92,52 @@ const startMatchmaking = (containerId, io) => {
 
   container.timerStarted = true;
 
-  setTimeout(() => {
-    const updated = containers.get(containerId);
-    if (!updated) return;
+ setTimeout(() => {
+  const updated = containers.get(containerId);
+  if (!updated) return;
 
-    if (updated.users.length >= MIN_USERS && !updated.isReady) {
-      updated.isReady = true;
-updated.isLocked = true;
-updated.isGameStarted = true;
+  const totalUsers = updated.users.length;
 
-updated.turnOrder = [...updated.users];
-updated.currentTurnIndex = 0;
+  if (updated.isReady) return;
 
-      if (io) {
-        const totalUsers = updated.users.length;
-        const matrixSize = getMatrixSize(totalUsers);
+  // ✅ SUCCESS CASE (2–5 users after 30 sec)
+  if (totalUsers >= MIN_USERS) {
 
-        const payload = {
-          containerId,
-          totalUsers,
-          matrixSize,
-          users: updated.users
-        };
+    updated.isReady = true;
+    updated.isLocked = true;
+    updated.isGameStarted = true;
 
-        // ✅ USE ONLY THIS
-        if (io) {
-  emitWhenReady(io, containerId, payload);
-} else {
-  console.log("❌ IO is undefined, skipping emit");
+    updated.turnOrder = [...updated.users];
+    updated.currentTurnIndex = 0;
+
+    emitRoomUpdate(io, containerId, updated);
+
+    const payload = {
+      containerId,
+      totalUsers,
+      matrixSize: getMatrixSize(totalUsers),
+      users: updated.users
+    };
+
+    // 🔥 EMIT AFTER 30 SEC ONLY
+    io.to(containerId).emit("gameReady", payload);
+
+    console.log("🔥 GAME START AFTER 30 SEC:", containerId);
+  }
+
+  // ❌ FAIL CASE
+  else {
+    io.to(containerId).emit("matchFailed", {
+      containerId,
+      totalUsers,
+      message: "No players found"
+    });
+
+    containers.delete(containerId);
+  }
+
+}, WAIT_TIME);
 }
-      }
-    }
-  }, WAIT_TIME);
-};
 
 
 
@@ -184,6 +180,7 @@ const addUserToContainer = (userId , io) => {
   // 🔥 PREVENT DUPLICATE USER
   if (!container.users.includes(userId)) {
     container.users.push(userId);
+    emitRoomUpdate(io, containerId, container);
   }
 
   console.log("👤 User added:", userId, "→", containerId);
@@ -202,21 +199,8 @@ const addUserToContainer = (userId , io) => {
     score: 0
   };
 
-  // 🔥 START GAME CONDITION
-  if (
-    container.users.length >= MIN_USERS &&
-    !container.isGameEnded &&
-    !container.isReady
-  ) {
-    container.isReady = true;
-    container.isLocked = true;
-    container.isGameStarted = true;
 
-    container.turnOrder = [...container.users];
-    container.currentTurnIndex = 0;
 
-    console.log("🔥 GAME START:", containerId);
-  }
 
   return {
     containerId,
@@ -235,6 +219,7 @@ const removeUserFromContainer = (userId, io) => {
       // 🔥 CASE 1: BEFORE GAME START
       if (!container.isGameStarted) {
         container.users.splice(index, 1);
+        emitRoomUpdate(io, id, container);
 
         delete container.playerStats[userId];
         container.submittedUsers.delete(userId);

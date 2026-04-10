@@ -53,27 +53,18 @@ const startGame = async (userId, socket, io) => {
     console.log("📡 Room Update:", container.users.length);
   }
 
-  // ===============================
-  // 🚀 STEP 3: SEND GAME READY ONLY WHEN STARTED
-  // ===============================
-  if (io && container && container.isGameStarted) {
-    const payload = {
-      containerId,
-      totalUsers: container.users.length,
-      matrixSize: gameContainer.getMatrixSize(container.users.length),
-      users: [...container.users]
-    };
+  if (io && containerId) {
+    const room = io.sockets.adapter.rooms.get(containerId);
 
-    io.to(containerId).emit("gameReady", payload);
-
-    console.log("🔥 GAME READY EMITTED:", containerId);
+    console.log("👥 ROOM SIZE:", room?.size);
+    console.log("👥 USERS:", container.users.length);
   }
+ 
 
   return {
     containerId
   };
 };
-
 
 
 
