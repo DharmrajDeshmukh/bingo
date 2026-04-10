@@ -21,10 +21,10 @@ const startGame = async (userId, socket, io) => {
   }
 
   // ✅ mark user active
-  activeUsers.addUser(userId, io);
+  activeUsers.addUser(userId);
 
   // ✅ add user to container
-  const result = gameContainer.addUserToContainer(userId, io);
+  const result = gameContainer.addUserToContainer(userId);
   const containerId = result?.containerId;
 
   if (!containerId) {
@@ -40,12 +40,23 @@ const startGame = async (userId, socket, io) => {
     console.log("📦 Socket joined:", containerId);
   }
 
-  // ✅ STEP 2: EMIT ONLY (STATE ALREADY HANDLED IN CONTAINER)
-  if (
-    io &&
-    container &&
-    container.isGameStarted // ✅ ONLY CHECK THIS
-  ) {
+  // ===============================
+  // 🔥 STEP 2: ALWAYS SEND ROOM UPDATE
+  // ===============================
+  if (io && container) {
+    io.to(containerId).emit("roomUpdate", {
+      containerId,
+      totalUsers: container.users.length,
+      users: [...container.users]
+    });
+
+    console.log("📡 Room Update:", container.users.length);
+  }
+
+  // ===============================
+  // 🚀 STEP 3: SEND GAME READY ONLY WHEN STARTED
+  // ===============================
+  if (io && container && container.isGameStarted) {
     const payload = {
       containerId,
       totalUsers: container.users.length,
@@ -81,7 +92,7 @@ const endGame = async (userId, containerId, io) => {
   }
 
   activeUsers.removeUser(userId);
-  gameContainer.removeUserFromContainer(userId, io);
+  gameContainer.removeUserFromContainer(userId);
 
   return {
     message: "Game ended",
@@ -89,6 +100,8 @@ const endGame = async (userId, containerId, io) => {
     containerId
   };
 };
+
+
 
 
 // 🚪 LEAVE GAME
