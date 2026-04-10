@@ -6,41 +6,36 @@ const gameMatrix = require("../utils/gameMatrix");
 
 const startGame = async (userId, socket, io) => {
 
-  // 🔁 If user already in game
   if (activeUsers.isUserActive(userId)) {
     const existingContainer = gameContainer.getUserContainer(userId);
 
-    // 🔥 Ensure socket joins room again (important)
     if (socket && existingContainer) {
       socket.join(existingContainer);
     }
 
     return {
-      containerId: existingContainer,
-      isReady: false
+      containerId: existingContainer
     };
   }
 
-  // ✅ Add user
   activeUsers.addUser(userId, io);
 
-  const result = gameContainer.addUserToContainer(userId, io || null);
-const containerId = result.containerId; // ✅ extract string
+  const result = gameContainer.addUserToContainer(userId, io);
+  const containerId = result.containerId;
+
   if (!containerId) {
-  throw new Error("Failed to create/join container");
-}
+    throw new Error("Failed to create/join container");
+  }
+
   const container = gameContainer.getContainer(containerId);
 
-  // 🔥 Join socket room (VERY IMPORTANT)
   if (socket && containerId) {
     socket.join(containerId);
   }
 
-  // ❌ DO NOT manually emit gameReady here
-  // Already handled in container.service via:
-  // emitWhenReady()
-
-  return containerId;
+  return {
+    containerId
+  };
 };
 
 
