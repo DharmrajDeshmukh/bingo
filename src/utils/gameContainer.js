@@ -80,7 +80,7 @@ const emitWhenReady = (io, containerId, payload) => {
     if (size >= payload.totalUsers || attempts > 10) {
       clearInterval(interval);
 
-      io.to(containerId).emit("game_ready", payload);
+      io.to(containerId).emit("gameReady", payload);
       console.log("✅ Emitted game_ready:", containerId);
     }
 
@@ -136,8 +136,6 @@ const addUserToContainer = (userId, io) => {
 
   let containerId = findAvailableContainer();
 
-  
-
   if (!containerId) {
     containerId = createContainer();
   }
@@ -149,7 +147,11 @@ const addUserToContainer = (userId, io) => {
     container = containers.get(containerId);
   }
 
+  // ✅ ADD USER
   container.users.push(userId);
+
+  console.log("👤 User added:", userId, "→", containerId);
+  console.log("👥 Total users:", container.users.length);
 
   // 🔥 INIT STATS
   const size = getMatrixSize(container.users.length);
@@ -162,40 +164,29 @@ const addUserToContainer = (userId, io) => {
     score: 0
   };
 
-  // 🔥 START TIMER
+  // 🔥 START MATCHMAKING TIMER (fallback)
   startMatchmaking(containerId, io);
 
-  // 🚀 INSTANT START
+ 
+
+  // 🚀 OPTIONAL: MAX USERS INSTANT START (already covered but safe)
   if (
-  container.users.length === MAX_USERS &&
-  !container.isReady &&
-  !container.isGameEnded
-) {
-  // ✅ Stop matchmaking timer
-  container.timerStarted = false;
+    container.users.length === MAX_USERS &&
+    !container.isGameEnded
+  ) {
+    console.log("🚀 MAX USERS START:", containerId);
 
-  // ✅ Set game state
-  container.isReady = true;
-  container.isLocked = true;
-  container.isGameStarted = true;
+    if (io) {
+      const payload = {
+        containerId,
+        totalUsers: container.users.length,
+        matrixSize: getMatrixSize(container.users.length),
+        users: [...container.users]
+      };
 
-  console.log("🚀 Instant start:", containerId);
-
-  if (io) {
-    const totalUsers = container.users.length;
-    const matrixSize = getMatrixSize(totalUsers);
-
-    const payload = {
-      containerId,
-      totalUsers,
-      matrixSize,
-      users: [...container.users] // ✅ safe copy
-    };
-
-    // ✅ Emit only when all joined
-    emitWhenReady(io, containerId, payload);
+      emitWhenReady(io, containerId, payload);
+    }
   }
-}
 
   return containerId;
 };
