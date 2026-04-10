@@ -24,7 +24,8 @@ const startGame = async (userId, socket, io) => {
   // ✅ Add user
   activeUsers.addUser(userId, io);
 
-  const containerId = gameContainer.addUserToContainer(userId, io || null);
+  const result = gameContainer.addUserToContainer(userId, io || null);
+const containerId = result.containerId; // ✅ extract string
   if (!containerId) {
   throw new Error("Failed to create/join container");
 }
