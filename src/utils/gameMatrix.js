@@ -42,10 +42,30 @@ const getContainerMatrices = (containerId) => {
   return gameMatrices.get(containerId);
 };
 
+const getPosition = (containerId, userId, value) => {
+  if (!gameMatrices.has(containerId)) return null;
+
+  const container = gameMatrices.get(containerId);
+  const matrix = container.get(userId);
+
+  if (!matrix) return null;
+
+  for (let i = 0; i < matrix.length; i++) {
+    for (let j = 0; j < matrix[i].length; j++) {
+      if (matrix[i][j] === value) {
+        return { row: i, col: j };
+      }
+    }
+  }
+
+  return null;
+};
+
 
 module.exports = {
   setUserMatrix,
   getUserMatrix,
   removeUserMatrix,
-  getContainerMatrices
+  getContainerMatrices,
+  getPosition 
 };
