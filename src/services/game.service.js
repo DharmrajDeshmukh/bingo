@@ -179,14 +179,19 @@ const currentTurn = turnOrder[0];
 container.isLocked = true;
 
 // 🔥 MAIN EMIT
-if (io) {
-  io.to(containerId).emit("allMatricesReady", {
-    containerId,
-    matrices: formattedMatrices,
-    turnOrder,
-    currentTurn
-  });
-}
+const players = turnOrder.map((userId, index) => ({
+  userId,
+  position: index + 1
+}));
+
+const currentTurnIndex = turnOrder.indexOf(currentTurn);
+
+io.to(containerId).emit("allMatricesReady", {
+  containerId,
+  matrices: formattedMatrices,
+  players,                              // 🔥 NEW
+  currentTurn: currentTurnIndex + 1     // 🔥 NUMBER
+});
 
 console.log("🎮 All matrices ready:", containerId);
 
