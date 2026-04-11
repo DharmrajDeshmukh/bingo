@@ -8,42 +8,41 @@ const startGame = async (userId, socket, io) => {
 
   const existingContainer = gameContainer.getUserContainer(userId);
 
-if (existingContainer) {
-  if (socket) {
-    socket.join(existingContainer);
-    console.log("🔁 Rejoined:", existingContainer);
+  if (existingContainer) {
+    if (socket) {
+      socket.join(existingContainer);
+      console.log("🔁 Rejoined:", existingContainer);
+    }
+
+    return {
+      containerId: existingContainer
+    };
   }
 
-  return {
-    containerId: existingContainer
-  };
-}
-
-if (container.isGameOver) {
-  return { message: "Game already finished" };
-}
-
-
-
-  // ✅ add user to container
-  const result = gameContainer.addUserToContainer(userId , io);
+  // ✅ FIRST: add user to container
+  const result = gameContainer.addUserToContainer(userId, io);
   const containerId = result?.containerId;
 
   if (!containerId) {
     throw new Error("Failed to create/join container");
   }
 
-  // ✅ get container
+  // ✅ NOW get container (move this UP)
   const container = gameContainer.getContainer(containerId);
 
-  // ✅ STEP 1: JOIN FIRST (CRITICAL)
+  // 🔥 NOW SAFE to use
+  if (container?.isGameOver) {
+    return { message: "Game already finished" };
+  }
+
+  // ✅ JOIN SOCKET
   if (socket) {
     socket.join(containerId);
     console.log("📦 Socket joined:", containerId);
   }
 
   // ===============================
-  // 🔥 STEP 2: ALWAYS SEND ROOM UPDATE
+  // 🔥 ROOM UPDATE
   // ===============================
   if (io && container) {
     io.to(containerId).emit("roomUpdate", {
@@ -61,7 +60,6 @@ if (container.isGameOver) {
     console.log("👥 ROOM SIZE:", room?.size);
     console.log("👥 USERS:", container.users.length);
   }
- 
 
   return {
     containerId
