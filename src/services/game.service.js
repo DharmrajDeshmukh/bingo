@@ -294,10 +294,11 @@ const containerData = gameContainer.getContainer(containerId);
 const turnOrder = containerData.turnOrder;
 const index = turnOrder.indexOf(nextUser);
 
-io.to(containerId).emit("turnChanged", {
-  currentTurn: index + 1
+io.to(containerId).emit("movePlayed", {
+  userId,
+  move,
+  currentTurn: index + 1   // 🔥 ADD THIS
 });
-
   return {
     message: "Move accepted",
     currentTurn: nextUser
