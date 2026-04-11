@@ -136,12 +136,18 @@ const setMatrix = async (userId, containerId, matrix, io) => {
     throw new Error(`Matrix must be ${expectedSize}x${expectedSize}`);
   }
 
-  // ✅ Save matrix
-  gameMatrix.setUserMatrix(containerId, userId, matrix);
-  container.submittedUsers.add(userId);
 
-  const totalUsers = container.users.length;
-  const submittedUsers = container.submittedUsers.size;
+// ✅ Save matrix
+gameMatrix.setUserMatrix(containerId, userId, matrix);
+
+// 🔥 SINGLE SOURCE OF TRUTH
+const matrices = gameMatrix.getContainerMatrices(containerId);
+
+const totalUsers = container.users.length;
+const submittedUsers = matrices ? matrices.size : 0;
+
+console.log("📊 TOTAL USERS:", totalUsers);
+console.log("📊 SUBMITTED (MATRIX):", submittedUsers);
 
   // ⏳ WAIT
   if (submittedUsers < totalUsers) {

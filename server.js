@@ -45,18 +45,56 @@ io.on("connection", (socket) => {
   });
 
   // ✅ JOIN ROOM
-  socket.on("joinRoom", ({ containerId }) => {
-    if (!containerId) {
-      console.log("⚠️ No containerId");
-      return;
-    }
+socket.on("joinRoom", ({ containerId }) => {
+  if (!containerId) {
+    console.log("⚠️ No containerId");
+    return;
+  }
 
-    socket.join(containerId);
+  socket.join(containerId);
 
-    console.log(`📦 Joined room: ${containerId}`);
+  console.log(`📦 Joined room: ${containerId}`);
 
-    socket.emit("joinedRoom", { containerId });
-  });
+  socket.emit("joinedRoom", { containerId });
+
+  // ================= 🔥 FIX START =================
+
+  const gameMatrix = require("./src/utils/gameMatrix");
+  const gameContainer = require("./src/utils/gameContainer");
+
+  const matrices = gameMatrix.getContainerMatrices(containerId);
+  const container = gameContainer.getContainer(containerId);
+
+  console.log("🔍 Checking game state...");
+  console.log("Matrices exist:", !!matrices);
+  console.log("Container exist:", !!container);
+
+  if (
+    matrices &&
+    container &&
+    container.submittedUsers.size === container.users.length
+  ) {
+    const formatted = {};
+
+    matrices.forEach((m, uid) => {
+      formatted[uid] = m;
+    });
+
+    const turnOrder = gameContainer.generateTurnOrder(containerId);
+    const currentTurn = turnOrder[0];
+
+    socket.emit("allMatricesReady", {
+      containerId,
+      matrices: formatted,
+      turnOrder,
+      currentTurn
+    });
+
+    console.log("🔁 Re-sent allMatricesReady to late user");
+  }
+
+  // ================= 🔥 FIX END =================
+});
 
   // ✅ LEAVE ROOM
   socket.on("leaveRoom", ({ containerId }) => {
