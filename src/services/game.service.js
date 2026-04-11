@@ -19,6 +19,11 @@ if (existingContainer) {
   };
 }
 
+if (container.isGameOver) {
+  return { message: "Game already finished" };
+}
+
+
 
   // ✅ add user to container
   const result = gameContainer.addUserToContainer(userId , io);
@@ -225,42 +230,44 @@ const playMove = async (userId, containerId, move, io) => {
   }
 
   const size = gameContainer.getMatrixSize(container.users.length);
-  const WINNING_SCORE = size;
 
-  let winner = null;
 
-  container.users.forEach(uid => {
+const WINNING_SCORE = 5;
 
-    const stats = container.playerStats[uid];
+let winner = null; 
 
-    if (stats.marked.has(move.number)) return;
+container.users.forEach(uid => {
 
-    const position = gameMatrix.getPosition(containerId, uid, move.number);
-    if (!position) return;
+  const stats = container.playerStats[uid];
 
-    const { row, col } = position;
+  if (stats.marked.has(move)) return;
 
-    stats.marked.add(move.number);
+  const position = gameMatrix.getPosition(containerId, uid, move);
+  if (!position) return;
 
-    stats.rowCount[row]++;
-    stats.colCount[col]++;
+  const { row, col } = position;
 
-    if (row === col) stats.diagCount++;
-    if (row + col === size - 1) stats.antiDiagCount++;
+  stats.marked.add(move);
 
-    let newLines = 0;
+  stats.rowCount[row]++;
+  stats.colCount[col]++;
 
-    if (stats.rowCount[row] === size) newLines++;
-    if (stats.colCount[col] === size) newLines++;
-    if (stats.diagCount === size) newLines++;
-    if (stats.antiDiagCount === size) newLines++;
+  if (row === col) stats.diag1++;
+  if (row + col === size - 1) stats.diag2++;
 
-    stats.score += newLines;
+  let newLines = 0;
 
-    if (stats.score >= WINNING_SCORE && !winner) {
-      winner = uid;
-    }
-  });
+  if (stats.rowCount[row] === size) newLines++;
+  if (stats.colCount[col] === size) newLines++;
+  if (stats.diag1 === size) newLines++;
+  if (stats.diag2 === size) newLines++;
+
+  stats.score += newLines;
+
+  if (stats.score >= WINNING_SCORE && !winner) {
+    winner = uid;
+  }
+});
 
   // 🔥 BROADCAST MOVE
   if (io) {
@@ -271,6 +278,9 @@ const playMove = async (userId, containerId, move, io) => {
   }
 
   if (winner) {
+
+    container.isGameOver = true;
+    
     if (io) {
       io.to(containerId).emit("gameFinished", {
         winner
@@ -280,13 +290,14 @@ const playMove = async (userId, containerId, move, io) => {
     return { message: "Game finished", winner };
   }
 
-  const nextUser = gameContainer.nextTurn(containerId);
+const nextUser = gameContainer.nextTurn(containerId);
 
-  if (io) {
-    io.to(containerId).emit("turnChanged", {
-      currentTurn: nextUser
-    });
-  }
+const turnOrder = gameContainer.getTurnOrder(containerId);
+const index = turnOrder.indexOf(nextUser);
+
+io.to(containerId).emit("turnChanged", {
+  currentTurn: index + 1
+});
 
   return {
     message: "Move accepted",
