@@ -155,18 +155,41 @@ const setMatrix = async (userId, containerId, matrix, io) => {
   }
 
   // 🚀 START GAME
-  const turnOrder = gameContainer.generateTurnOrder(containerId);
-  const currentTurn = turnOrder[0];
+// 🚀 ALL MATRICES READY
 
-  container.isLocked = true;
+const allMatrices = gameMatrix.getContainerMatrices(containerId);
 
-  if (io) {
-    io.to(containerId).emit("gameReady", {
-      containerId,
-      turnOrder,
-      currentTurn
-    });
-  }
+// 🔥 convert Map → object
+const formattedMatrices = {};
+
+allMatrices.forEach((matrix, uid) => {
+  formattedMatrices[uid] = matrix;
+});
+
+// 🎯 TURN SYSTEM
+const turnOrder = gameContainer.generateTurnOrder(containerId);
+const currentTurn = turnOrder[0];
+
+container.isLocked = true;
+
+// 🔥 MAIN EMIT
+if (io) {
+  io.to(containerId).emit("allMatricesReady", {
+    containerId,
+    matrices: formattedMatrices,
+    turnOrder,
+    currentTurn
+  });
+}
+
+console.log("🎮 All matrices ready:", containerId);
+
+return {
+  status: "ready",
+  containerId,
+  turnOrder,
+  currentTurn
+};
 
   console.log("🎮 Game started:", containerId);
 
