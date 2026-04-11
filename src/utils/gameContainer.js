@@ -6,7 +6,7 @@ const MAX_USERS = 5;
 const MIN_USERS = 2;
 const WAIT_TIME = 30000; // 30 sec
 
-
+const disconnectTimers = new Map(); // userId → timer
 
 // 🔥 MATRIX SIZE LOGIC
 const getMatrixSize = (userCount) => {
@@ -344,6 +344,32 @@ const nextTurn = (containerId) => {
   return order[index];
 };
 
+const handleDisconnect = (userId, io) => {
+
+  console.log("⚠️ User disconnected:", userId);
+
+  const timer = setTimeout(() => {
+
+    console.log("❌ User not rejoined → removing:", userId);
+
+    removeUserFromContainer(userId, io);
+
+    disconnectTimers.delete(userId);
+
+  }, 30000); // 30 sec
+
+  disconnectTimers.set(userId, timer);
+};
+
+const handleReconnect = (userId) => {
+
+  if (disconnectTimers.has(userId)) {
+    clearTimeout(disconnectTimers.get(userId));
+    disconnectTimers.delete(userId);
+
+    console.log("✅ User reconnected:", userId);
+  }
+};
 
 module.exports = {
   addUserToContainer,
@@ -353,5 +379,7 @@ module.exports = {
   getMatrixSize,
   generateTurnOrder,
   getCurrentTurn,
-  nextTurn
+  nextTurn,
+  handleDisconnect,   
+  handleReconnect 
 };

@@ -23,6 +23,9 @@ const io = new Server(server, {
   }
 });
 
+
+const gameContainer = require("./src/utils/gameContainer");
+
 // ✅ STEP 6: ATTACH IO TO EXPRESS
 app.set("io", io);
 
@@ -32,17 +35,20 @@ io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
   // 🔥 REGISTER USER
-  socket.on("register", (userId) => {
-    if (!userId) {
-      console.log("⚠️ No userId provided");
-      return;
-    }
+ socket.on("register", (userId) => {
+  if (!userId) {
+    console.log("⚠️ No userId provided");
+    return;
+  }
 
-    socketMap.set(userId, socket);
+  socketMap.set(userId, socket);
 
-    console.log(`✅ User registered: ${userId}`);
-    console.log(`📊 Active users: ${socketMap.size}`);
-  });
+  // 🔥 HANDLE RECONNECT
+  gameContainer.handleReconnect(userId);
+
+  console.log(`✅ User registered: ${userId}`);
+  console.log(`📊 Active users: ${socketMap.size}`);
+});
 
   // ✅ JOIN ROOM
 socket.on("joinRoom", ({ containerId }) => {
@@ -113,20 +119,24 @@ socket.emit("allMatricesReady", {
   });
 
   // ❌ DISCONNECT
-  socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
+ socket.on("disconnect", () => {
+  console.log("❌ User disconnected:", socket.id);
 
-    // 🔥 REMOVE USER FROM MAP
-    for (let [userId, sock] of socketMap.entries()) {
-      if (sock.id === socket.id) {
-        socketMap.delete(userId);
-        console.log(`🗑️ Removed user: ${userId}`);
-        break;
-      }
+  for (let [userId, sock] of socketMap.entries()) {
+    if (sock.id === socket.id) {
+
+      // 🔥 CALL DISCONNECT HANDLER
+      gameContainer.handleDisconnect(userId, io);
+
+      socketMap.delete(userId);
+
+      console.log(`🗑️ Removed user: ${userId}`);
+      break;
     }
+  }
 
-    console.log(`📊 Active users: ${socketMap.size}`);
-  });
+  console.log(`📊 Active users: ${socketMap.size}`);
+});
 });
 
 // ================= SERVER START ================= //
