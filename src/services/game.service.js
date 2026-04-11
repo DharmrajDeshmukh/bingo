@@ -28,12 +28,12 @@ const startGame = async (userId, socket, io) => {
   }
 
   // ✅ NOW get container (move this UP)
-  const container = gameContainer.getContainer(containerId);
+const container = gameContainer.getContainer(containerId);
 
-  // 🔥 NOW SAFE to use
-  if (container?.isGameOver) {
-    return { message: "Game already finished" };
-  }
+// 🔥 ADD THIS (CRITICAL FIX)
+if (!container || container.isGameEnded) {
+  return { message: "Game already ended" };
+}
 
   // ✅ JOIN SOCKET
   if (socket) {
@@ -82,7 +82,7 @@ const endGame = async (userId, containerId, io) => {
     container.submittedUsers.delete(userId);
   }
 
-  gameContainer.removeUserFromContainer(userId);
+  gameContainer.endGame(containerId, io);
 
   return {
     message: "Game ended",
@@ -251,7 +251,8 @@ container.users.forEach(uid => {
   stats.colCount[col]++;
 
   if (row === col) stats.diagCount++;
-  if (row + col === size - 1) stats.diagCount++;
+  if (row === col) stats.diag1++;
+if (row + col === size - 1) stats.diag2++;
 
   let newLines = 0;
 
@@ -269,18 +270,19 @@ container.users.forEach(uid => {
 
 
 
-  if (winner) {
+ if (winner) {
 
-    container.isGameEnded = true;
-    
-    if (io) {
-      io.to(containerId).emit("gameFinished", {
-        winner
-      });
-    }
-
-    return { message: "Game finished", winner };
+  if (io) {
+    io.to(containerId).emit("gameFinished", {
+      winner
+    });
   }
+
+  // 🔥 CLEANUP CALL
+  gameContainer.endGame(containerId, io);
+
+  return { message: "Game finished", winner };
+}
 
 const nextUser = gameContainer.nextTurn(containerId);
 

@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const http = require("http");
 const { Server } = require("socket.io");
+const gameContainer = require("./src/utils/gameContainer");
 
 // ✅ STEP 1: IMPORT APP FIRST
 const app = require("./src/app");
@@ -24,7 +25,7 @@ const io = new Server(server, {
 });
 
 
-const gameContainer = require("./src/utils/gameContainer");
+
 
 // ✅ STEP 6: ATTACH IO TO EXPRESS
 app.set("io", io);
@@ -52,8 +53,18 @@ io.on("connection", (socket) => {
 
   // ✅ JOIN ROOM
 socket.on("joinRoom", ({ containerId }) => {
-  if (!containerId) {
+ 
+   if (!containerId) {
     console.log("⚠️ No containerId");
+    return;
+  }
+
+  // 🔥 ADD THIS FIRST
+  const container = gameContainer.getContainer(containerId);
+
+  // 🔥 SAFETY CHECK
+  if (!container || container.isGameEnded) {
+    console.log("❌ Join blocked: game already ended");
     return;
   }
 
@@ -66,10 +77,8 @@ socket.on("joinRoom", ({ containerId }) => {
   // ================= 🔥 FIX START =================
 
   const gameMatrix = require("./src/utils/gameMatrix");
-  const gameContainer = require("./src/utils/gameContainer");
 
   const matrices = gameMatrix.getContainerMatrices(containerId);
-  const container = gameContainer.getContainer(containerId);
 
   console.log("🔍 Checking game state...");
   console.log("Matrices exist:", !!matrices);
@@ -89,24 +98,20 @@ socket.on("joinRoom", ({ containerId }) => {
     const turnOrder = gameContainer.generateTurnOrder(containerId);
     const currentTurn = turnOrder[0];
 
- const players = turnOrder.map((userId, index) => ({
-  userId,
-  position: index + 1
-}));
+    const players = turnOrder.map((userId, index) => ({
+      userId,
+      position: index + 1
+    }));
 
-const currentTurnIndex = turnOrder.indexOf(currentTurn);
-
-socket.emit("allMatricesReady", {
-  containerId,
-  matrices: formatted,
-  players,
-  currentTurn: currentTurn
-});
+    socket.emit("allMatricesReady", {
+      containerId,
+      matrices: formatted,
+      players,
+      currentTurn: currentTurn
+    });
 
     console.log("🔁 Re-sent allMatricesReady to late user");
   }
-
-  // ================= 🔥 FIX END =================
 });
 
   // ✅ LEAVE ROOM
@@ -126,8 +131,22 @@ socket.emit("allMatricesReady", {
     if (sock.id === socket.id) {
 
       // 🔥 CALL DISCONNECT HANDLER
-      gameContainer.handleDisconnect(userId, io);
+   const containerId = gameContainer.getUserContainer(userId);
 
+if (!containerId) {
+  socketMap.delete(userId);
+  break;
+}
+
+const container = gameContainer.getContainer(containerId);
+
+// 🔥 ADD SAFETY
+if (container && container.isGameEnded) {
+  socketMap.delete(userId);
+  break;
+}
+
+gameContainer.handleDisconnect(userId, io);
       socketMap.delete(userId);
 
       console.log(`🗑️ Removed user: ${userId}`);

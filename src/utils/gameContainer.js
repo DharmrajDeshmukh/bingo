@@ -45,6 +45,7 @@ const createContainer = () => {
   isGameStarted: false,   // ✅ ADD
   isGameEnded: false,     // ✅ ADD
   timerStarted: false,
+  timerId: null,
   bots: new Set()         // ✅ ADD
 });
 
@@ -116,12 +117,7 @@ if (totalUsers >= MIN_USERS) {
 
   if (!containers.has(containerId)) return; // ✅ SAFETY
 
-  io.to(containerId).emit("gameReady", {
-    roomId: containerId,   // ✅ CORRECT
-    totalUsers,
-    matrixSize: getMatrixSize(totalUsers),
-    users: updated.users
-  });
+ 
 
   console.log("🔥 GAME START AFTER 30 SEC:", containerId);
 }
@@ -263,17 +259,9 @@ if (container.isGameStarted && !container.isGameEnded) {
 }
 
       // 🔥 CASE 3: GAME ENDED → CLEANUP
-      if (container.isGameEnded) {
-        container.users.splice(index, 1);
-        delete container.playerStats[userId];
-
-        if (container.users.length === 0) {
-          console.log("🗑️ Container destroyed:", id);
-          containers.delete(id);
-        }
-
-        return id;
-      }
+     if (container.isGameEnded) {
+  return id;
+}
     }
   }
 
@@ -281,13 +269,8 @@ if (container.isGameStarted && !container.isGameEnded) {
 };
 
 
-const endGame = (containerId) => {
-  const container = containers.get(containerId);
-  if (!container) return;
-
-  container.isGameEnded = true;
-
-  console.log("🏁 Game ended:", containerId);
+const endGame = (containerId, io) => {
+  forceCleanupContainer(containerId, io);
 };
 
 
@@ -371,6 +354,55 @@ const handleReconnect = (userId) => {
   }
 };
 
+const forceCleanupContainer = (containerId, io) => {
+  const container = containers.get(containerId);
+  if (!container) return;
+
+  console.log("💥 FORCE CLEAN:", containerId);
+
+  // 🔥 1. STOP ALL EVENTS
+  container.isGameEnded = true;
+  container.isLocked = true;
+
+  // 🔥 2. EMIT FINAL RESULT (IMPORTANT)
+  io.to(containerId).emit("gameEnded", {
+    containerId,
+    message: "Game finished"
+  });
+
+  // 🔥 3. REMOVE ALL USERS FROM ROOM
+const room = io.sockets.adapter.rooms.get(containerId);
+
+if (room) {
+  room.forEach(socketId => {
+    const socket = io.sockets.sockets.get(socketId);
+    if (socket) {
+      socket.leave(containerId);
+    }
+  });
+}
+
+  // 🔥 4. CLEAR DATA
+container.users = [];
+container.playerStats = {};
+container.submittedUsers.clear();
+
+// 🔥 ADD THIS (VERY IMPORTANT)
+turnOrders.delete(containerId);
+currentTurnIndex.delete(containerId);
+
+// 🔥 CLEAR MATRIX (ADD THIS FILE)
+const gameMatrix = require("./gameMatrix");
+if (gameMatrix.clearContainerMatrices) {
+  gameMatrix.clearContainerMatrices(containerId);
+}
+
+// 🔥 5. DELETE CONTAINER
+containers.delete(containerId);
+
+  console.log("🗑️ Container deleted instantly:", containerId);
+};
+
 module.exports = {
   addUserToContainer,
   removeUserFromContainer,
@@ -381,5 +413,7 @@ module.exports = {
   getCurrentTurn,
   nextTurn,
   handleDisconnect,   
-  handleReconnect 
+  handleReconnect ,
+  forceCleanupContainer, 
+  endGame 
 };
