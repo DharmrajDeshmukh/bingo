@@ -189,7 +189,8 @@ exports.playMove = async (req, res) => {
       });
     }
 
-    const result = await gameService.playMove(userId, containerId, move);
+     const io = req.app.get("io");
+    const result = await gameService.playMove(userId, containerId, move , io);
 
     return res.status(200).json({
       success: true,
