@@ -155,9 +155,9 @@ exports.setMatrix = async (req, res) => {
       });
     }
 
-    const io = req.app.get("io");
+  
 
-    const result = await gameService.setMatrix(userId, containerId, matrix ,io);
+    const result = await gameService.setMatrix(userId, containerId, matrix );
 
     return res.status(200).json({
       success: true,
