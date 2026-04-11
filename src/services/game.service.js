@@ -250,8 +250,8 @@ container.users.forEach(uid => {
   stats.rowCount[row]++;
   stats.colCount[col]++;
 
-  if (row === col) stats.diag1++;
-  if (row + col === size - 1) stats.diag2++;
+  if (row === col) stats.diagCount++;
+  if (row + col === size - 1) stats.diagCount++;
 
   let newLines = 0;
 
@@ -277,7 +277,7 @@ container.users.forEach(uid => {
 
   if (winner) {
 
-    container.isGameOver = true;
+    container.isGameEnded = true;
     
     if (io) {
       io.to(containerId).emit("gameFinished", {
@@ -290,7 +290,8 @@ container.users.forEach(uid => {
 
 const nextUser = gameContainer.nextTurn(containerId);
 
-const turnOrder = gameContainer.getTurnOrder(containerId);
+const containerData = gameContainer.getContainer(containerId);
+const turnOrder = containerData.turnOrder;
 const index = turnOrder.indexOf(nextUser);
 
 io.to(containerId).emit("turnChanged", {
