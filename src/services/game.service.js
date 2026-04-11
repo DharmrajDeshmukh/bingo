@@ -193,7 +193,7 @@ io.to(containerId).emit("allMatricesReady", {
   containerId,
   matrices: formattedMatrices,
   players,                              // 🔥 NEW
-  currentTurn: currentTurnIndex + 1     // 🔥 NUMBER
+  currentTurnUserId: currentTurn    // 🔥 NUMBER
 });
 
 console.log("🎮 All matrices ready:", containerId);
@@ -267,13 +267,7 @@ container.users.forEach(uid => {
   }
 });
 
-  // 🔥 BROADCAST MOVE
-  if (io) {
-    io.to(containerId).emit("movePlayed", {
-      userId,
-      move
-    });
-  }
+
 
   if (winner) {
 
@@ -297,12 +291,12 @@ const index = turnOrder.indexOf(nextUser);
 io.to(containerId).emit("movePlayed", {
   userId,
   move,
-  currentTurn: index + 1   // 🔥 ADD THIS
+  currentTurnUserId: nextUser   // ✅ FIXED
 });
-  return {
-    message: "Move accepted",
-    currentTurn: nextUser
-  };
+ return {
+  message: "Move accepted",
+  currentTurnUserId: nextUser
+};
 };
 
 

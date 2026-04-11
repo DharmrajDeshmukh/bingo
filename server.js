@@ -100,7 +100,7 @@ socket.emit("allMatricesReady", {
   containerId,
   matrices: formatted,
   players,
-  currentTurn: currentTurnIndex + 1
+  currentTurn: currentTurn
 });
 
     console.log("🔁 Re-sent allMatricesReady to late user");
