@@ -95,8 +95,10 @@ socket.on("joinRoom", ({ containerId }) => {
       formatted[uid] = m;
     });
 
-    const turnOrder = gameContainer.generateTurnOrder(containerId);
-    const currentTurn = turnOrder[0];
+   const currentTurn = gameContainer.getCurrentTurn(containerId);
+
+const containerData = gameContainer.getContainer(containerId);
+const turnOrder = containerData.turnOrder;
 
     const players = turnOrder.map((userId, index) => ({
       userId,
@@ -107,7 +109,7 @@ socket.on("joinRoom", ({ containerId }) => {
       containerId,
       matrices: formatted,
       players,
-      currentTurn: currentTurn
+      currentTurnUserId: currentTurn
     });
 
     console.log("🔁 Re-sent allMatricesReady to late user");

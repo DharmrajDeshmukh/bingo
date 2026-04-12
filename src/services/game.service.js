@@ -179,6 +179,9 @@ allMatrices.forEach((matrix, uid) => {
 const turnOrder = gameContainer.generateTurnOrder(containerId);
 const currentTurn = turnOrder[0];
 
+container.turnOrder = turnOrder;
+container.currentTurnIndex = 0;
+
 container.isLocked = true;
 
 // 🔥 MAIN EMIT
