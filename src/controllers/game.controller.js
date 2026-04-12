@@ -182,6 +182,12 @@ exports.playMove = async (req, res) => {
     const userId = req.user?.userId;
     const { containerId, move } = req.body;
 
+    console.log("🎯 CONTROLLER HIT:", {
+      userId,
+      containerId,
+      move
+    });
+
     if (!userId || !containerId || !move) {
       return res.status(400).json({
         success: false,
@@ -189,7 +195,8 @@ exports.playMove = async (req, res) => {
       });
     }
 
-     const io = req.app.get("io");
+    const io = req.app.get("io");
+
     const result = await gameService.playMove(userId, containerId, move , io);
 
     return res.status(200).json({

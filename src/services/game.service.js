@@ -179,8 +179,7 @@ allMatrices.forEach((matrix, uid) => {
 const turnOrder = gameContainer.generateTurnOrder(containerId);
 const currentTurn = turnOrder[0];
 
-container.turnOrder = turnOrder;
-container.currentTurnIndex = 0;
+
 
 container.isLocked = true;
 
@@ -219,89 +218,96 @@ return {
 };
 
 
+
+// 🎯 PLAY MOVE
 // 🎯 PLAY MOVE
 const playMove = async (userId, containerId, move, io) => {
+
+  console.log("🎯 PLAY MOVE HIT:", {
+    userId,
+    currentTurn: gameContainer.getCurrentTurn(containerId)
+  });
 
   const container = gameContainer.getContainer(containerId);
   if (!container) throw new Error("Invalid container");
 
   const currentTurn = gameContainer.getCurrentTurn(containerId);
+
+  if (!currentTurn) {
+    console.log("❌ TURN NOT INITIALIZED");
+    throw new Error("Turn not ready");
+  }
+
   if (currentTurn !== userId) {
+    console.log("❌ WRONG TURN:", { currentTurn, userId });
     throw new Error("Not your turn");
   }
 
   const size = gameContainer.getMatrixSize(container.users.length);
 
+  const WINNING_SCORE = 5;
+  let winner = null;
 
-const WINNING_SCORE = 5;
+  container.users.forEach(uid => {
 
-let winner = null; 
+    const stats = container.playerStats[uid];
 
-container.users.forEach(uid => {
+    if (stats.marked.has(move)) return;
 
-  const stats = container.playerStats[uid];
+    const position = gameMatrix.getPosition(containerId, uid, move);
+    if (!position) return;
 
-  if (stats.marked.has(move)) return;
+    const { row, col } = position;
 
-  const position = gameMatrix.getPosition(containerId, uid, move);
-  if (!position) return;
+    stats.marked.add(move);
 
-  const { row, col } = position;
+    stats.rowCount[row]++;
+    stats.colCount[col]++;
 
-  stats.marked.add(move);
+    if (row === col) stats.diag1++;
+    if (row + col === size - 1) stats.diag2++;
 
-  stats.rowCount[row]++;
-  stats.colCount[col]++;
+    let newLines = 0;
 
-  if (row === col) stats.diagCount++;
-  if (row === col) stats.diag1++;
-if (row + col === size - 1) stats.diag2++;
+    if (stats.rowCount[row] === size) newLines++;
+    if (stats.colCount[col] === size) newLines++;
+    if (stats.diag1 === size) newLines++;
+    if (stats.diag2 === size) newLines++;
 
-  let newLines = 0;
+    stats.score += newLines;
 
-  if (stats.rowCount[row] === size) newLines++;
-  if (stats.colCount[col] === size) newLines++;
-  if (stats.diag1 === size) newLines++;
-  if (stats.diag2 === size) newLines++;
+    if (stats.score >= WINNING_SCORE && !winner) {
+      winner = uid;
+    }
+  });
 
-  stats.score += newLines;
+  // 🏆 WINNER
+  if (winner) {
 
-  if (stats.score >= WINNING_SCORE && !winner) {
-    winner = uid;
+    if (io) {
+      io.to(containerId).emit("gameFinished", {
+        winner
+      });
+    }
+
+    gameContainer.endGame(containerId, io);
+
+    return { message: "Game finished", winner };
   }
-});
 
+  // 🔁 NEXT TURN
+  const nextUser = gameContainer.nextTurn(containerId);
 
+  io.to(containerId).emit("movePlayed", {
+    userId,
+    move,
+    currentTurnUserId: nextUser
+  });
 
- if (winner) {
-
-  if (io) {
-    io.to(containerId).emit("gameFinished", {
-      winner
-    });
-  }
-
-  // 🔥 CLEANUP CALL
-  gameContainer.endGame(containerId, io);
-
-  return { message: "Game finished", winner };
-}
-
-const nextUser = gameContainer.nextTurn(containerId);
-
-const containerData = gameContainer.getContainer(containerId);
-const turnOrder = containerData.turnOrder;
-const index = turnOrder.indexOf(nextUser);
-
-io.to(containerId).emit("movePlayed", {
-  userId,
-  move,
-  currentTurnUserId: nextUser   // ✅ FIXED
-});
- return {
-  message: "Move accepted",
-  currentTurnUserId: nextUser
-};
+  return {
+    message: "Move accepted",
+    currentTurnUserId: nextUser
+  };
 };
 
 
