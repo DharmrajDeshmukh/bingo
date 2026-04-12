@@ -105,7 +105,7 @@ const turnOrder = containerData.turnOrder;
       position: index + 1
     }));
 
-    socket.emit("allMatricesReady", {
+    io.to(containerId).emit("allMatricesReady", {
       containerId,
       matrices: formatted,
       players,

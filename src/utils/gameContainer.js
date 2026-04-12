@@ -108,18 +108,18 @@ if (totalUsers >= MIN_USERS) {
   updated.isLocked = true;
   updated.isGameStarted = true;
 
-  updated.submittedUsers.clear();   // ✅ FIX
+  updated.submittedUsers.clear();
 
   updated.turnOrder = [...updated.users];
   updated.currentTurnIndex = 0;
 
-  emitRoomUpdate(io, containerId, updated);
+  // 🔥 MAIN FIX
+  io.to(containerId).emit("gameReady", {
+    roomId: containerId,
+    totalUsers: updated.users.length
+  });
 
-  if (!containers.has(containerId)) return; // ✅ SAFETY
-
- 
-
-  console.log("🔥 GAME START AFTER 30 SEC:", containerId);
+  console.log("🔥 GAME READY AFTER 30 SEC:", containerId);
 }
 
   // ❌ FAIL CASE
